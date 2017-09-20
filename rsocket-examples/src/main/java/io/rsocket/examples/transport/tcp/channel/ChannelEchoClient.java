@@ -36,7 +36,7 @@ public final class ChannelEchoClient {
         .start()
         .subscribe();
 
-    RSocket socket =
+    RSocket<PayloadImpl> socket =
         RSocketFactory.connect()
             .transport(TcpClientTransport.create("localhost", 7000))
             .start()
@@ -51,13 +51,14 @@ public final class ChannelEchoClient {
         .block();
   }
 
-  private static class SocketAcceptorImpl implements SocketAcceptor {
+  private static class SocketAcceptorImpl implements SocketAcceptor<PayloadImpl> {
     @Override
-    public Mono<RSocket> accept(ConnectionSetupPayload setupPayload, RSocket reactiveSocket) {
+    public Mono<RSocket<PayloadImpl>> accept(
+        ConnectionSetupPayload setupPayload, RSocket<PayloadImpl> reactiveSocket) {
       return Mono.just(
-          new AbstractRSocket() {
+          new AbstractRSocket<PayloadImpl>() {
             @Override
-            public Flux<Payload> requestChannel(Publisher<Payload> payloads) {
+            public Flux<PayloadImpl> requestChannel(Publisher<PayloadImpl> payloads) {
               return Flux.from(payloads)
                   .map(Payload::getDataUtf8)
                   .map(s -> "Echo: " + s)

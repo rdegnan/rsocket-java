@@ -17,18 +17,19 @@
 package io.rsocket.plugins;
 
 import io.rsocket.DuplexConnection;
+import io.rsocket.Payload;
 import io.rsocket.RSocket;
 import java.util.ArrayList;
 import java.util.List;
 
-public class PluginRegistry {
+public class PluginRegistry<T extends Payload> {
   private List<DuplexConnectionInterceptor> connections = new ArrayList<>();
-  private List<RSocketInterceptor> clients = new ArrayList<>();
-  private List<RSocketInterceptor> servers = new ArrayList<>();
+  private List<RSocketInterceptor<T>> clients = new ArrayList<>();
+  private List<RSocketInterceptor<T>> servers = new ArrayList<>();
 
   public PluginRegistry() {}
 
-  public PluginRegistry(PluginRegistry defaults) {
+  public PluginRegistry(PluginRegistry<T> defaults) {
     this.connections.addAll(defaults.connections);
     this.clients.addAll(defaults.clients);
     this.servers.addAll(defaults.servers);
@@ -38,24 +39,24 @@ public class PluginRegistry {
     connections.add(interceptor);
   }
 
-  public void addClientPlugin(RSocketInterceptor interceptor) {
+  public void addClientPlugin(RSocketInterceptor<T> interceptor) {
     clients.add(interceptor);
   }
 
-  public void addServerPlugin(RSocketInterceptor interceptor) {
+  public void addServerPlugin(RSocketInterceptor<T> interceptor) {
     servers.add(interceptor);
   }
 
-  public RSocket applyClient(RSocket rSocket) {
-    for (RSocketInterceptor i : clients) {
+  public RSocket<T> applyClient(RSocket<T> rSocket) {
+    for (RSocketInterceptor<T> i : clients) {
       rSocket = i.apply(rSocket);
     }
 
     return rSocket;
   }
 
-  public RSocket applyServer(RSocket rSocket) {
-    for (RSocketInterceptor i : servers) {
+  public RSocket<T> applyServer(RSocket<T> rSocket) {
+    for (RSocketInterceptor<T> i : servers) {
       rSocket = i.apply(rSocket);
     }
 

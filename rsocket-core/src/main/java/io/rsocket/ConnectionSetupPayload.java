@@ -17,8 +17,9 @@ package io.rsocket;
 
 import static io.rsocket.frame.FrameHeaderFlyweight.FLAGS_M;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import io.rsocket.frame.SetupFrameFlyweight;
-import java.nio.ByteBuffer;
 
 /**
  * Exposed to server for determination of RequestHandler based on mime types and SETUP metadata/data
@@ -31,7 +32,7 @@ public abstract class ConnectionSetupPayload implements Payload {
 
   public static ConnectionSetupPayload create(String metadataMimeType, String dataMimeType) {
     return new ConnectionSetupPayloadImpl(
-        metadataMimeType, dataMimeType, Frame.NULL_BYTEBUFFER, Frame.NULL_BYTEBUFFER, NO_FLAGS);
+        metadataMimeType, dataMimeType, Unpooled.EMPTY_BUFFER, Unpooled.EMPTY_BUFFER, NO_FLAGS);
   }
 
   public static ConnectionSetupPayload create(
@@ -39,15 +40,15 @@ public abstract class ConnectionSetupPayload implements Payload {
     return new ConnectionSetupPayloadImpl(
         metadataMimeType,
         dataMimeType,
-        payload.getData(),
-        payload.getMetadata(),
+        payload.serializeData(),
+        payload.serializeMetadata(),
         payload.hasMetadata() ? FLAGS_M : 0);
   }
 
   public static ConnectionSetupPayload create(
       String metadataMimeType, String dataMimeType, int flags) {
     return new ConnectionSetupPayloadImpl(
-        metadataMimeType, dataMimeType, Frame.NULL_BYTEBUFFER, Frame.NULL_BYTEBUFFER, flags);
+        metadataMimeType, dataMimeType, Unpooled.EMPTY_BUFFER, Unpooled.EMPTY_BUFFER, flags);
   }
 
   public static ConnectionSetupPayload create(final Frame setupFrame) {
@@ -55,8 +56,8 @@ public abstract class ConnectionSetupPayload implements Payload {
     return new ConnectionSetupPayloadImpl(
         Frame.Setup.metadataMimeType(setupFrame),
         Frame.Setup.dataMimeType(setupFrame),
-        setupFrame.getData(),
-        setupFrame.getMetadata(),
+        setupFrame.serializeData(),
+        setupFrame.serializeMetadata(),
         Frame.Setup.getFlags(setupFrame));
   }
 
@@ -83,23 +84,19 @@ public abstract class ConnectionSetupPayload implements Payload {
 
     private final String metadataMimeType;
     private final String dataMimeType;
-    private final ByteBuffer data;
-    private final ByteBuffer metadata;
+    private final ByteBuf data;
+    private final ByteBuf metadata;
     private final int flags;
 
     public ConnectionSetupPayloadImpl(
-        String metadataMimeType,
-        String dataMimeType,
-        ByteBuffer data,
-        ByteBuffer metadata,
-        int flags) {
+        String metadataMimeType, String dataMimeType, ByteBuf data, ByteBuf metadata, int flags) {
       this.metadataMimeType = metadataMimeType;
       this.dataMimeType = dataMimeType;
       this.data = data;
       this.metadata = metadata;
       this.flags = flags;
 
-      if (!hasMetadata() && metadata.remaining() > 0) {
+      if (!hasMetadata() && metadata.readableBytes() > 0) {
         throw new IllegalArgumentException("metadata flag incorrect");
       }
     }
@@ -115,13 +112,13 @@ public abstract class ConnectionSetupPayload implements Payload {
     }
 
     @Override
-    public ByteBuffer getData() {
-      return data;
+    public ByteBuf serializeMetadata() {
+      return metadata;
     }
 
     @Override
-    public ByteBuffer getMetadata() {
-      return metadata;
+    public ByteBuf serializeData() {
+      return data;
     }
 
     @Override

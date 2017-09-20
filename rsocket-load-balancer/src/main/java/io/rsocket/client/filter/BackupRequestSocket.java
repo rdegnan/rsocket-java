@@ -32,53 +32,53 @@ import org.reactivestreams.Subscription;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-public class BackupRequestSocket implements RSocket {
+public class BackupRequestSocket<T extends Payload> implements RSocket<T> {
   private final ScheduledExecutorService executor;
-  private final RSocket child;
+  private final RSocket<T> child;
   private final Quantile q;
 
-  public BackupRequestSocket(RSocket child, double quantile, ScheduledExecutorService executor) {
+  public BackupRequestSocket(RSocket<T> child, double quantile, ScheduledExecutorService executor) {
     this.child = child;
     this.executor = executor;
     q = new FrugalQuantile(quantile);
   }
 
-  public BackupRequestSocket(RSocket child, double quantile) {
+  public BackupRequestSocket(RSocket<T> child, double quantile) {
     this(child, quantile, Executors.newScheduledThreadPool(2));
   }
 
-  public BackupRequestSocket(RSocket child) {
+  public BackupRequestSocket(RSocket<T> child) {
     this(child, 0.99);
   }
 
   @Override
-  public Mono<Void> fireAndForget(Payload payload) {
+  public Mono<Void> fireAndForget(T payload) {
     return child.fireAndForget(payload);
   }
 
   @Override
-  public Mono<Payload> requestResponse(Payload payload) {
+  public Mono<T> requestResponse(T payload) {
     return Mono.from(
         subscriber -> {
-          Subscriber<? super Payload> oneSubscriber = new OneSubscriber<>(subscriber);
-          Subscriber<? super Payload> backupRequest =
+          Subscriber<? super T> oneSubscriber = new OneSubscriber<>(subscriber);
+          Subscriber<? super T> backupRequest =
               new FirstRequestSubscriber(oneSubscriber, () -> child.requestResponse(payload));
           child.requestResponse(payload).subscribe(backupRequest);
         });
   }
 
   @Override
-  public Flux<Payload> requestStream(Payload payload) {
+  public Flux<T> requestStream(T payload) {
     return child.requestStream(payload);
   }
 
   @Override
-  public Flux<Payload> requestChannel(Publisher<Payload> payloads) {
+  public Flux<T> requestChannel(Publisher<T> payloads) {
     return child.requestChannel(payloads);
   }
 
   @Override
-  public Mono<Void> metadataPush(Payload payload) {
+  public Mono<Void> metadataPush(T payload) {
     return child.metadataPush(payload);
   }
 
@@ -140,14 +140,14 @@ public class BackupRequestSocket implements RSocket {
     }
   }
 
-  private class FirstRequestSubscriber implements Subscriber<Payload> {
-    private final Subscriber<? super Payload> oneSubscriber;
-    private final Supplier<Publisher<Payload>> action;
+  private class FirstRequestSubscriber implements Subscriber<T> {
+    private final Subscriber<? super T> oneSubscriber;
+    private final Supplier<Publisher<T>> action;
     private long start;
     private ScheduledFuture<?> future;
 
     private FirstRequestSubscriber(
-        Subscriber<? super Payload> oneSubscriber, Supplier<Publisher<Payload>> action) {
+        Subscriber<? super T> oneSubscriber, Supplier<Publisher<T>> action) {
       this.oneSubscriber = oneSubscriber;
       this.action = action;
     }
@@ -158,7 +158,7 @@ public class BackupRequestSocket implements RSocket {
       if (q.estimation() > 0) {
         future =
             executor.schedule(
-                () -> action.get().subscribe(new BackupRequestSubscriber<>(oneSubscriber, s)),
+                () -> action.get().subscribe(new BackupRequestSubscriber(oneSubscriber, s)),
                 (long) q.estimation(),
                 TimeUnit.MICROSECONDS);
       }
@@ -166,7 +166,7 @@ public class BackupRequestSocket implements RSocket {
     }
 
     @Override
-    public void onNext(Payload t) {
+    public void onNext(T t) {
       if (future != null) {
         future.cancel(true);
       }
@@ -186,7 +186,7 @@ public class BackupRequestSocket implements RSocket {
     }
   }
 
-  private class BackupRequestSubscriber<T> implements Subscriber<T> {
+  private class BackupRequestSubscriber implements Subscriber<T> {
     private final Subscriber<? super T> oneSubscriber;
     private final Subscription firstRequestSubscription;
     private long start;

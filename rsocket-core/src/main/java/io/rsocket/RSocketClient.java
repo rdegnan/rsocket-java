@@ -23,7 +23,6 @@ import io.netty.util.collection.IntObjectHashMap;
 import io.rsocket.exceptions.ConnectionException;
 import io.rsocket.exceptions.Exceptions;
 import io.rsocket.internal.LimitableRequestPublisher;
-import io.rsocket.util.PayloadImpl;
 import java.nio.channels.ClosedChannelException;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -40,17 +39,18 @@ import reactor.core.publisher.MonoProcessor;
 import reactor.core.publisher.UnicastProcessor;
 
 /** Client Side of a RSocket socket. Sends {@link Frame}s to a {@link RSocketServer} */
-class RSocketClient implements RSocket {
+class RSocketClient<T extends Payload> implements RSocket<T> {
 
   private static final ClosedChannelException CLOSED_CHANNEL_EXCEPTION =
       noStacktrace(new ClosedChannelException());
 
   private final DuplexConnection connection;
+  private final Function<Frame, T> frameDecoder;
   private final Consumer<Throwable> errorConsumer;
   private final StreamIdSupplier streamIdSupplier;
   private final MonoProcessor<Void> started;
   private final IntObjectHashMap<LimitableRequestPublisher> senders;
-  private final IntObjectHashMap<Subscriber<Payload>> receivers;
+  private final IntObjectHashMap<Subscriber<T>> receivers;
   private final AtomicInteger missedAckCounter;
 
   private @Nullable Disposable keepAliveSendSub;
@@ -59,19 +59,23 @@ class RSocketClient implements RSocket {
 
   RSocketClient(
       DuplexConnection connection,
+      Function<Frame, T> frameDecoder,
       Consumer<Throwable> errorConsumer,
       StreamIdSupplier streamIdSupplier) {
-    this(connection, errorConsumer, streamIdSupplier, Duration.ZERO, Duration.ZERO, 0);
+    this(
+        connection, frameDecoder, errorConsumer, streamIdSupplier, Duration.ZERO, Duration.ZERO, 0);
   }
 
   RSocketClient(
       DuplexConnection connection,
+      Function<Frame, T> frameDecoder,
       Consumer<Throwable> errorConsumer,
       StreamIdSupplier streamIdSupplier,
       Duration tickPeriod,
       Duration ackTimeout,
       int missedAcks) {
     this.connection = connection;
+    this.frameDecoder = frameDecoder;
     this.errorConsumer = errorConsumer;
     this.streamIdSupplier = streamIdSupplier;
     this.started = MonoProcessor.create();
@@ -122,7 +126,7 @@ class RSocketClient implements RSocket {
   }
 
   @Override
-  public Mono<Void> fireAndForget(Payload payload) {
+  public Mono<Void> fireAndForget(T payload) {
     Mono<Void> defer =
         Mono.defer(
             () -> {
@@ -136,22 +140,22 @@ class RSocketClient implements RSocket {
   }
 
   @Override
-  public Mono<Payload> requestResponse(Payload payload) {
+  public Mono<T> requestResponse(T payload) {
     return handleRequestResponse(payload);
   }
 
   @Override
-  public Flux<Payload> requestStream(Payload payload) {
+  public Flux<T> requestStream(T payload) {
     return handleStreamResponse(Flux.just(payload), FrameType.REQUEST_STREAM);
   }
 
   @Override
-  public Flux<Payload> requestChannel(Publisher<Payload> payloads) {
+  public Flux<T> requestChannel(Publisher<T> payloads) {
     return handleStreamResponse(Flux.from(payloads), FrameType.REQUEST_CHANNEL);
   }
 
   @Override
-  public Mono<Void> metadataPush(Payload payload) {
+  public Mono<Void> metadataPush(T payload) {
     final Frame requestFrame = Frame.Request.from(0, FrameType.METADATA_PUSH, payload, 1);
     return connection.sendOne(requestFrame);
   }
@@ -171,7 +175,7 @@ class RSocketClient implements RSocket {
     return connection.onClose();
   }
 
-  private Mono<Payload> handleRequestResponse(final Payload payload) {
+  private Mono<T> handleRequestResponse(final T payload) {
     return started.then(
         Mono.defer(
             () -> {
@@ -179,7 +183,7 @@ class RSocketClient implements RSocket {
               final Frame requestFrame =
                   Frame.Request.from(streamId, FrameType.REQUEST_RESPONSE, payload, 1);
 
-              MonoProcessor<Payload> receiver = MonoProcessor.create();
+              MonoProcessor<T> receiver = MonoProcessor.create();
 
               synchronized (this) {
                 receivers.put(streamId, receiver);
@@ -224,11 +228,11 @@ class RSocketClient implements RSocket {
             }));
   }
 
-  private Flux<Payload> handleStreamResponse(Flux<Payload> request, FrameType requestType) {
+  private Flux<T> handleStreamResponse(Flux<T> request, FrameType requestType) {
     return started.thenMany(
         Flux.defer(
-            new Supplier<Flux<Payload>>() {
-              final UnicastProcessor<Payload> receiver = UnicastProcessor.create();
+            new Supplier<Flux<T>>() {
+              final UnicastProcessor<T> receiver = UnicastProcessor.create();
               final int streamId = streamIdSupplier.nextStreamId();
               volatile @Nullable MonoProcessor<Void> subscribedRequests;
               boolean firstRequest = true;
@@ -246,7 +250,7 @@ class RSocketClient implements RSocket {
               }
 
               @Override
-              public Flux<Payload> get() {
+              public Flux<T> get() {
                 return receiver
                     .doOnRequest(
                         l -> {
@@ -263,7 +267,7 @@ class RSocketClient implements RSocket {
                                 request
                                     .transform(
                                         f -> {
-                                          LimitableRequestPublisher<Payload> wrapped =
+                                          LimitableRequestPublisher<T> wrapped =
                                               LimitableRequestPublisher.wrap(f);
                                           // Need to set this to one for first the frame
                                           wrapped.increaseRequestLimit(1);
@@ -275,11 +279,11 @@ class RSocketClient implements RSocket {
                                           return wrapped;
                                         })
                                     .map(
-                                        new Function<Payload, Frame>() {
+                                        new Function<T, Frame>() {
                                           boolean firstPayload = true;
 
                                           @Override
-                                          public Frame apply(Payload payload) {
+                                          public Frame apply(T payload) {
                                             boolean _firstPayload = false;
                                             synchronized (this) {
                                               if (firstPayload) {
@@ -405,7 +409,7 @@ class RSocketClient implements RSocket {
   }
 
   private void handleFrame(int streamId, FrameType type, Frame frame) {
-    Subscriber<Payload> receiver;
+    Subscriber<T> receiver;
     synchronized (this) {
       receiver = receivers.get(streamId);
     }
@@ -418,7 +422,7 @@ class RSocketClient implements RSocket {
           removeReceiver(streamId);
           break;
         case NEXT_COMPLETE:
-          receiver.onNext(new PayloadImpl(frame));
+          receiver.onNext(frameDecoder.apply(frame));
           receiver.onComplete();
           break;
         case CANCEL:
@@ -434,7 +438,7 @@ class RSocketClient implements RSocket {
             break;
           }
         case NEXT:
-          receiver.onNext(new PayloadImpl(frame));
+          receiver.onNext(frameDecoder.apply(frame));
           break;
         case REQUEST_N:
           {

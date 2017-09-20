@@ -17,11 +17,12 @@
 package io.rsocket.spectator;
 
 import com.netflix.spectator.api.Registry;
+import io.rsocket.Payload;
 import io.rsocket.RSocket;
 import io.rsocket.plugins.RSocketInterceptor;
 
 /** Interceptor that wraps a {@link RSocket} with a {@link SpectatorRSocket} */
-public class SpectatorRSocketInterceptor implements RSocketInterceptor {
+public class SpectatorRSocketInterceptor<T extends Payload> implements RSocketInterceptor<T> {
   private static final String[] EMPTY = new String[0];
   private final Registry registry;
   private final String[] tags;
@@ -36,7 +37,7 @@ public class SpectatorRSocketInterceptor implements RSocketInterceptor {
   }
 
   @Override
-  public RSocket apply(RSocket reactiveSocket) {
-    return new SpectatorRSocket(registry, reactiveSocket, tags);
+  public RSocket<T> apply(RSocket<T> reactiveSocket) {
+    return new SpectatorRSocket<>(registry, reactiveSocket, tags);
   }
 }

@@ -15,7 +15,7 @@
  */
 package io.rsocket;
 
-import java.nio.ByteBuffer;
+import io.netty.buffer.ByteBuf;
 import java.nio.charset.StandardCharsets;
 
 /** Payload of a {@link Frame}. */
@@ -33,20 +33,20 @@ public interface Payload {
    *
    * @return payload metadata.
    */
-  ByteBuffer getMetadata();
+  ByteBuf serializeMetadata();
 
   /**
    * Returns the Payload data. Always non-null.
    *
    * @return payload data.
    */
-  ByteBuffer getData();
+  ByteBuf serializeData();
 
   default String getMetadataUtf8() {
-    return StandardCharsets.UTF_8.decode(getMetadata()).toString();
+    return serializeMetadata().toString(StandardCharsets.UTF_8);
   }
 
   default String getDataUtf8() {
-    return StandardCharsets.UTF_8.decode(getData()).toString();
+    return serializeData().toString(StandardCharsets.UTF_8);
   }
 }

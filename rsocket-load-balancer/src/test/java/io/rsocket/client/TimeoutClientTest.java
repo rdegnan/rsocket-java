@@ -18,7 +18,6 @@ package io.rsocket.client;
 
 import static org.hamcrest.Matchers.instanceOf;
 
-import io.rsocket.Payload;
 import io.rsocket.RSocket;
 import io.rsocket.client.filter.RSockets;
 import io.rsocket.exceptions.TimeoutException;
@@ -33,19 +32,20 @@ public class TimeoutClientTest {
   @Test
   public void testTimeoutSocket() {
     TestingRSocket socket = new TestingRSocket((subscriber, payload) -> false);
-    RSocket timeout = RSockets.timeout(Duration.ofMillis(50)).apply(socket);
+    RSocket<PayloadImpl> timeout =
+        RSockets.<PayloadImpl>timeout(Duration.ofMillis(50)).apply(socket);
 
     timeout
         .requestResponse(PayloadImpl.EMPTY)
         .subscribe(
-            new Subscriber<Payload>() {
+            new Subscriber<PayloadImpl>() {
               @Override
               public void onSubscribe(Subscription s) {
                 s.request(1);
               }
 
               @Override
-              public void onNext(Payload payload) {
+              public void onNext(PayloadImpl payload) {
                 throw new AssertionError("onNext invoked when not expected.");
               }
 

@@ -80,7 +80,7 @@ public abstract class BaseClientServerTest<T extends ClientSetupRule<?, ?>> {
     assertEquals(10, outputCount);
   }
 
-  private Payload testPayload(int metadataPresent) {
+  private PayloadImpl testPayload(int metadataPresent) {
     String metadata;
     switch (metadataPresent % 5) {
       case 0:
@@ -124,7 +124,7 @@ public abstract class BaseClientServerTest<T extends ClientSetupRule<?, ?>> {
 
   @Test(timeout = 10000)
   public void testRequestStream() {
-    Flux<Payload> publisher = setup.getRSocket().requestStream(testPayload(3));
+    Flux<PayloadImpl> publisher = setup.getRSocket().requestStream(testPayload(3));
 
     long count = publisher.take(5).count().block();
 
@@ -169,7 +169,7 @@ public abstract class BaseClientServerTest<T extends ClientSetupRule<?, ?>> {
   @Test(timeout = 10000)
   @Ignore
   public void testChannel0() {
-    Flux<Payload> publisher = setup.getRSocket().requestChannel(Flux.empty());
+    Flux<PayloadImpl> publisher = setup.getRSocket().requestChannel(Flux.empty());
 
     long count = publisher.count().block();
 
@@ -178,7 +178,7 @@ public abstract class BaseClientServerTest<T extends ClientSetupRule<?, ?>> {
 
   @Test(timeout = 10000)
   public void testChannel1() {
-    Flux<Payload> publisher = setup.getRSocket().requestChannel(Flux.just(testPayload(0)));
+    Flux<PayloadImpl> publisher = setup.getRSocket().requestChannel(Flux.just(testPayload(0)));
 
     long count = publisher.count().block();
 
@@ -187,7 +187,7 @@ public abstract class BaseClientServerTest<T extends ClientSetupRule<?, ?>> {
 
   @Test(timeout = 10000)
   public void testChannel3() {
-    Flux<Payload> publisher =
+    Flux<PayloadImpl> publisher =
         setup
             .getRSocket()
             .requestChannel(Flux.just(testPayload(0), testPayload(1), testPayload(2)));

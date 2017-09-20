@@ -27,6 +27,7 @@ import io.rsocket.tckdrivers.common.TckClientTest;
 import io.rsocket.tckdrivers.server.JavaServerDriver;
 import io.rsocket.transport.netty.client.TcpClientTransport;
 import io.rsocket.transport.netty.server.TcpServerTransport;
+import io.rsocket.util.PayloadImpl;
 import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
@@ -78,7 +79,8 @@ public class Main {
    */
   public static void runTests(String host, int port, Predicate<String> testFilter) {
     TcpClientTransport transport = TcpClientTransport.create(host, port);
-    Mono<RSocket> clientBuilder = RSocketFactory.connect().transport(transport).start();
+    Mono<RSocket<PayloadImpl>> clientBuilder =
+        RSocketFactory.connect().transport(transport).start();
 
     System.out.println("test file: " + file);
 

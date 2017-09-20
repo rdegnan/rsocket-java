@@ -21,6 +21,7 @@ import io.rsocket.RSocket;
 import io.rsocket.RSocketFactory;
 import io.rsocket.transport.ClientTransport;
 import io.rsocket.transport.ServerTransport;
+import io.rsocket.util.PayloadImpl;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -32,10 +33,10 @@ import reactor.core.publisher.Mono;
 public class ClientSetupRule<T, S extends Closeable> extends ExternalResource {
 
   private Supplier<T> addressSupplier;
-  private BiFunction<T, S, RSocket> clientConnector;
+  private BiFunction<T, S, RSocket<PayloadImpl>> clientConnector;
   private Function<T, S> serverInit;
 
-  private RSocket client;
+  private RSocket<PayloadImpl> client;
 
   public ClientSetupRule(
       Supplier<T> addressSupplier,
@@ -74,7 +75,7 @@ public class ClientSetupRule<T, S extends Closeable> extends ExternalResource {
     };
   }
 
-  public RSocket getRSocket() {
+  public RSocket<PayloadImpl> getRSocket() {
     return client;
   }
 }

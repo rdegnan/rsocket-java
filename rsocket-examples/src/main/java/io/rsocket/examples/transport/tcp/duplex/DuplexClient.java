@@ -36,19 +36,19 @@ public final class DuplexClient {
                   .log()
                   .subscribe();
 
-              return Mono.just(new AbstractRSocket() {});
+              return Mono.just(new AbstractRSocket<PayloadImpl>() {});
             })
         .transport(TcpServerTransport.create("localhost", 7000))
         .start()
         .subscribe();
 
-    RSocket socket =
+    RSocket<PayloadImpl> socket =
         RSocketFactory.connect()
             .acceptor(
                 rSocket ->
-                    new AbstractRSocket() {
+                    new AbstractRSocket<PayloadImpl>() {
                       @Override
-                      public Flux<Payload> requestStream(Payload payload) {
+                      public Flux<PayloadImpl> requestStream(PayloadImpl payload) {
                         return Flux.interval(Duration.ofSeconds(1))
                             .map(aLong -> new PayloadImpl("Bi-di Response => " + aLong));
                       }

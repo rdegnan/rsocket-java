@@ -19,14 +19,14 @@ package io.rsocket.test.util;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
-import io.rsocket.Payload;
 import io.rsocket.RSocket;
+import io.rsocket.util.PayloadImpl;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.reactivestreams.Publisher;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-public class MockRSocket implements RSocket {
+public class MockRSocket implements RSocket<PayloadImpl> {
 
   private final AtomicInteger fnfCount;
   private final AtomicInteger rrCount;
@@ -34,9 +34,9 @@ public class MockRSocket implements RSocket {
   private final AtomicInteger rSubCount;
   private final AtomicInteger rChannelCount;
   private final AtomicInteger pushCount;
-  private final RSocket delegate;
+  private final RSocket<PayloadImpl> delegate;
 
-  public MockRSocket(RSocket delegate) {
+  public MockRSocket(RSocket<PayloadImpl> delegate) {
     this.delegate = delegate;
     fnfCount = new AtomicInteger();
     rrCount = new AtomicInteger();
@@ -47,27 +47,27 @@ public class MockRSocket implements RSocket {
   }
 
   @Override
-  public final Mono<Void> fireAndForget(Payload payload) {
+  public final Mono<Void> fireAndForget(PayloadImpl payload) {
     return delegate.fireAndForget(payload).doOnSubscribe(s -> fnfCount.incrementAndGet());
   }
 
   @Override
-  public final Mono<Payload> requestResponse(Payload payload) {
+  public final Mono<PayloadImpl> requestResponse(PayloadImpl payload) {
     return delegate.requestResponse(payload).doOnSubscribe(s -> rrCount.incrementAndGet());
   }
 
   @Override
-  public final Flux<Payload> requestStream(Payload payload) {
+  public final Flux<PayloadImpl> requestStream(PayloadImpl payload) {
     return delegate.requestStream(payload).doOnSubscribe(s -> rStreamCount.incrementAndGet());
   }
 
   @Override
-  public final Flux<Payload> requestChannel(Publisher<Payload> payloads) {
+  public final Flux<PayloadImpl> requestChannel(Publisher<PayloadImpl> payloads) {
     return delegate.requestChannel(payloads).doOnSubscribe(s -> rChannelCount.incrementAndGet());
   }
 
   @Override
-  public final Mono<Void> metadataPush(Payload payload) {
+  public final Mono<Void> metadataPush(PayloadImpl payload) {
     return delegate.metadataPush(payload).doOnSubscribe(s -> pushCount.incrementAndGet());
   }
 

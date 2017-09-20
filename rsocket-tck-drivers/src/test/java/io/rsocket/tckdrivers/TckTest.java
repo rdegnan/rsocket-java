@@ -10,6 +10,7 @@ import io.rsocket.tckdrivers.common.TckClientTest;
 import io.rsocket.tckdrivers.common.TckTestSuite;
 import io.rsocket.tckdrivers.server.JavaServerDriver;
 import io.rsocket.transport.local.LocalServerTransport;
+import io.rsocket.util.PayloadImpl;
 import java.io.File;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -33,7 +34,8 @@ public class TckTest {
     LocalServerTransport st = LocalServerTransport.createEphemeral();
     Closeable server =
         RSocketFactory.receive().acceptor(d.acceptor()).transport(st).start().block();
-    Mono<RSocket> client = RSocketFactory.connect().transport(st.clientTransport()).start();
+    Mono<RSocket<PayloadImpl>> client =
+        RSocketFactory.connect().transport(st.clientTransport()).start();
 
     try {
       JavaClientDriver jd = new JavaClientDriver(client);

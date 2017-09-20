@@ -16,8 +16,10 @@
 
 package io.rsocket.plugins;
 
+import io.rsocket.Payload;
 import io.rsocket.RSocket;
 import java.util.function.Function;
 
 /** */
-public @FunctionalInterface interface RSocketInterceptor extends Function<RSocket, RSocket> {}
+@FunctionalInterface
+public interface RSocketInterceptor<T extends Payload> extends Function<RSocket<T>, RSocket<T>> {}

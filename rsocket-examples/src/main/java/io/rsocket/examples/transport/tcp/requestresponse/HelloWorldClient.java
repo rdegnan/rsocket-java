@@ -32,11 +32,11 @@ public final class HelloWorldClient {
         .acceptor(
             (setupPayload, reactiveSocket) ->
                 Mono.just(
-                    new AbstractRSocket() {
+                    new AbstractRSocket<PayloadImpl>() {
                       boolean fail = true;
 
                       @Override
-                      public Mono<Payload> requestResponse(Payload p) {
+                      public Mono<PayloadImpl> requestResponse(PayloadImpl p) {
                         if (fail) {
                           fail = false;
                           return Mono.error(new Throwable());
@@ -49,7 +49,7 @@ public final class HelloWorldClient {
         .start()
         .subscribe();
 
-    RSocket socket =
+    RSocket<PayloadImpl> socket =
         RSocketFactory.connect()
             .transport(TcpClientTransport.create("localhost", 7000))
             .start()

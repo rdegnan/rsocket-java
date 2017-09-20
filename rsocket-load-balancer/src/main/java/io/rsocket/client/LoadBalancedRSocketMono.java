@@ -15,14 +15,11 @@
  */
 package io.rsocket.client;
 
-import static io.rsocket.util.ExceptionUtil.noStacktrace;
-
 import io.rsocket.Availability;
 import io.rsocket.Closeable;
 import io.rsocket.Payload;
 import io.rsocket.RSocket;
 import io.rsocket.client.filter.RSocketSupplier;
-import io.rsocket.exceptions.NoAvailableRSocketException;
 import io.rsocket.exceptions.TimeoutException;
 import io.rsocket.exceptions.TransportException;
 import io.rsocket.stat.Ewma;
@@ -55,7 +52,7 @@ import reactor.core.publisher.Operators;
  *
  * <p>It estimates the load of each RSocket based on statistics collected.
  */
-public abstract class LoadBalancedRSocketMono extends Mono<RSocket>
+public abstract class LoadBalancedRSocketMono<T extends Payload> extends Mono<RSocket<T>>
     implements Availability, Closeable {
 
   private static final Logger logger = LoggerFactory.getLogger(LoadBalancedRSocketMono.class);
@@ -88,9 +85,9 @@ public abstract class LoadBalancedRSocketMono extends Mono<RSocket>
 
   private int pendingSockets;
   private final ArrayList<WeightedSocket> activeSockets;
-  private final ArrayList<RSocketSupplier> activeFactories;
+  private final ArrayList<RSocketSupplier<T>> activeFactories;
   private final FactoriesRefresher factoryRefresher;
-  private final Mono<RSocket> selectSocket;
+  private final Mono<RSocket<T>> selectSocket;
 
   private final Ewma pendings;
   private volatile int targetAperture;
@@ -100,7 +97,7 @@ public abstract class LoadBalancedRSocketMono extends Mono<RSocket>
 
   private final MonoProcessor<Void> onClose = MonoProcessor.create();
   protected final MonoProcessor<Void> started = MonoProcessor.create();
-  protected final Mono<RSocket> rSocketMono;
+  protected final Mono<RSocket<T>> rSocketMono;
 
   /**
    * @param factories the source (factories) of RSocket
@@ -120,7 +117,7 @@ public abstract class LoadBalancedRSocketMono extends Mono<RSocket>
    *     RSocket. This is at that time that the slowest RSocket is closed. (unit is millisecond)
    */
   private LoadBalancedRSocketMono(
-      Publisher<? extends Collection<RSocketSupplier>> factories,
+      Publisher<? extends Collection<? extends RSocketSupplier<T>>> factories,
       double expFactor,
       double lowQuantile,
       double highQuantile,
@@ -157,13 +154,13 @@ public abstract class LoadBalancedRSocketMono extends Mono<RSocket>
     rSocketMono =
         Mono.create(
             sink -> {
-              RSocket rSocket = select();
+              RSocket<T> rSocket = select();
               sink.success(rSocket);
             });
   }
 
-  public static LoadBalancedRSocketMono create(
-      Publisher<? extends Collection<RSocketSupplier>> factories) {
+  public static <T extends Payload> LoadBalancedRSocketMono<T> create(
+      Publisher<? extends Collection<? extends RSocketSupplier<T>>> factories) {
     return create(
         factories,
         DEFAULT_EXP_FACTOR,
@@ -176,8 +173,8 @@ public abstract class LoadBalancedRSocketMono extends Mono<RSocket>
         DEFAULT_MAX_REFRESH_PERIOD_MS);
   }
 
-  public static LoadBalancedRSocketMono create(
-      Publisher<? extends Collection<RSocketSupplier>> factories,
+  public static <T extends Payload> LoadBalancedRSocketMono<T> create(
+      Publisher<? extends Collection<? extends RSocketSupplier<T>>> factories,
       double expFactor,
       double lowQuantile,
       double highQuantile,
@@ -186,7 +183,7 @@ public abstract class LoadBalancedRSocketMono extends Mono<RSocket>
       int minAperture,
       int maxAperture,
       long maxRefreshPeriodMs) {
-    return new LoadBalancedRSocketMono(
+    return new LoadBalancedRSocketMono<T>(
         factories,
         expFactor,
         lowQuantile,
@@ -197,7 +194,7 @@ public abstract class LoadBalancedRSocketMono extends Mono<RSocket>
         maxAperture,
         maxRefreshPeriodMs) {
       @Override
-      public void subscribe(CoreSubscriber<? super RSocket> s) {
+      public void subscribe(CoreSubscriber<? super RSocket<T>> s) {
         started.thenMany(rSocketMono).subscribe(s);
       }
     };
@@ -217,7 +214,7 @@ public abstract class LoadBalancedRSocketMono extends Mono<RSocket>
     while (n > 0) {
       int size = activeFactories.size();
       if (size == 1) {
-        RSocketSupplier factory = activeFactories.get(0);
+        RSocketSupplier<T> factory = activeFactories.get(0);
         if (factory.availability() > 0.0) {
           activeFactories.remove(0);
           pendingSockets++;
@@ -225,8 +222,8 @@ public abstract class LoadBalancedRSocketMono extends Mono<RSocket>
         }
         break;
       }
-      RSocketSupplier factory0 = null;
-      RSocketSupplier factory1 = null;
+      RSocketSupplier<T> factory0 = null;
+      RSocketSupplier<T> factory1 = null;
       int i0 = 0;
       int i1 = 0;
       for (int i = 0; i < EFFORT; i++) {
@@ -395,9 +392,9 @@ public abstract class LoadBalancedRSocketMono extends Mono<RSocket>
     return currentAvailability;
   }
 
-  private synchronized RSocket select() {
+  private synchronized RSocket<T> select() {
     if (activeSockets.isEmpty()) {
-      return FAILING_REACTIVE_SOCKET;
+      return FailingRSocket.instance();
     }
     refreshSockets();
 
@@ -531,7 +528,7 @@ public abstract class LoadBalancedRSocketMono extends Mono<RSocket>
    * This subscriber role is to subscribe to the list of server identifier, and update the factory
    * list.
    */
-  private class FactoriesRefresher implements Subscriber<Collection<RSocketSupplier>> {
+  private class FactoriesRefresher implements Subscriber<Collection<? extends RSocketSupplier<T>>> {
     private Subscription subscription;
 
     @Override
@@ -541,19 +538,20 @@ public abstract class LoadBalancedRSocketMono extends Mono<RSocket>
     }
 
     @Override
-    public void onNext(Collection<RSocketSupplier> newFactories) {
+    public void onNext(Collection<? extends RSocketSupplier<T>> newFactories) {
       synchronized (LoadBalancedRSocketMono.this) {
-        Set<RSocketSupplier> current = new HashSet<>(activeFactories.size() + activeSockets.size());
+        Set<RSocketSupplier<T>> current =
+            new HashSet<>(activeFactories.size() + activeSockets.size());
         current.addAll(activeFactories);
         for (WeightedSocket socket : activeSockets) {
-          RSocketSupplier factory = socket.getFactory();
+          RSocketSupplier<T> factory = socket.getFactory();
           current.add(factory);
         }
 
-        Set<RSocketSupplier> removed = new HashSet<>(current);
+        Set<RSocketSupplier<T>> removed = new HashSet<>(current);
         removed.removeAll(newFactories);
 
-        Set<RSocketSupplier> added = new HashSet<>(newFactories);
+        Set<RSocketSupplier<T>> added = new HashSet<>(newFactories);
         added.removeAll(current);
 
         boolean changed = false;
@@ -570,9 +568,9 @@ public abstract class LoadBalancedRSocketMono extends Mono<RSocket>
             }
           }
         }
-        Iterator<RSocketSupplier> it1 = activeFactories.iterator();
+        Iterator<RSocketSupplier<T>> it1 = activeFactories.iterator();
         while (it1.hasNext()) {
-          RSocketSupplier factory = it1.next();
+          RSocketSupplier<T> factory = it1.next();
           if (removed.contains(factory)) {
             it1.remove();
             changed = true;
@@ -587,7 +585,7 @@ public abstract class LoadBalancedRSocketMono extends Mono<RSocket>
               .append("\nUpdated active factories (size: ")
               .append(activeFactories.size())
               .append(")\n");
-          for (RSocketSupplier f : activeFactories) {
+          for (RSocketSupplier<T> f : activeFactories) {
             msgBuilder.append(" + ").append(f).append('\n');
           }
           msgBuilder.append("Active sockets:\n");
@@ -617,12 +615,12 @@ public abstract class LoadBalancedRSocketMono extends Mono<RSocket>
     }
   }
 
-  private class SocketAdder implements Subscriber<RSocket> {
-    private final RSocketSupplier factory;
+  private class SocketAdder implements Subscriber<RSocket<T>> {
+    private final RSocketSupplier<T> factory;
 
     private int errors;
 
-    private SocketAdder(RSocketSupplier factory) {
+    private SocketAdder(RSocketSupplier<T> factory) {
       this.factory = factory;
     }
 
@@ -632,7 +630,7 @@ public abstract class LoadBalancedRSocketMono extends Mono<RSocket>
     }
 
     @Override
-    public void onNext(RSocket rs) {
+    public void onNext(RSocket<T> rs) {
       synchronized (LoadBalancedRSocketMono.this) {
         if (activeSockets.size() >= targetAperture) {
           quickSlowestRS();
@@ -666,71 +664,15 @@ public abstract class LoadBalancedRSocketMono extends Mono<RSocket>
     public void onComplete() {}
   }
 
-  private static final FailingRSocket FAILING_REACTIVE_SOCKET = new FailingRSocket();
-
-  /**
-   * (Null Object Pattern) This failing RSocket never succeed, it is useful for simplifying the code
-   * when dealing with edge cases.
-   */
-  private static class FailingRSocket implements RSocket {
-
-    @SuppressWarnings("ThrowableInstanceNeverThrown")
-    private static final NoAvailableRSocketException NO_AVAILABLE_RS_EXCEPTION =
-        noStacktrace(new NoAvailableRSocketException());
-
-    private static final Mono<Void> errorVoid = Mono.error(NO_AVAILABLE_RS_EXCEPTION);
-    private static final Mono<Payload> errorPayload = Mono.error(NO_AVAILABLE_RS_EXCEPTION);
-
-    @Override
-    public Mono<Void> fireAndForget(Payload payload) {
-      return errorVoid;
-    }
-
-    @Override
-    public Mono<Payload> requestResponse(Payload payload) {
-      return errorPayload;
-    }
-
-    @Override
-    public Flux<Payload> requestStream(Payload payload) {
-      return errorPayload.flux();
-    }
-
-    @Override
-    public Flux<Payload> requestChannel(Publisher<Payload> payloads) {
-      return errorPayload.flux();
-    }
-
-    @Override
-    public Mono<Void> metadataPush(Payload payload) {
-      return errorVoid;
-    }
-
-    @Override
-    public double availability() {
-      return 0;
-    }
-
-    @Override
-    public Mono<Void> close() {
-      return Mono.empty();
-    }
-
-    @Override
-    public Mono<Void> onClose() {
-      return Mono.empty();
-    }
-  }
-
   /**
    * Wrapper of a RSocket, it computes statistics about the req/resp calls and update availability
    * accordingly.
    */
-  private class WeightedSocket extends RSocketProxy implements LoadBalancerSocketMetrics {
+  private class WeightedSocket extends RSocketProxy<T> implements LoadBalancerSocketMetrics {
 
     private static final double STARTUP_PENALTY = Long.MAX_VALUE >> 12;
 
-    private RSocketSupplier factory;
+    private RSocketSupplier<T> factory;
     private final Quantile lowerQuantile;
     private final Quantile higherQuantile;
     private final long inactivityFactor;
@@ -746,8 +688,8 @@ public abstract class LoadBalancedRSocketMono extends Mono<RSocket>
     private AtomicLong pendingStreams; // number of active streams
 
     WeightedSocket(
-        RSocket child,
-        RSocketSupplier factory,
+        RSocket<T> child,
+        RSocketSupplier<T> factory,
         Quantile lowerQuantile,
         Quantile higherQuantile,
         int inactivityFactor) {
@@ -768,40 +710,43 @@ public abstract class LoadBalancedRSocketMono extends Mono<RSocket>
     }
 
     WeightedSocket(
-        RSocket child, RSocketSupplier factory, Quantile lowerQuantile, Quantile higherQuantile) {
+        RSocket<T> child,
+        RSocketSupplier<T> factory,
+        Quantile lowerQuantile,
+        Quantile higherQuantile) {
       this(child, factory, lowerQuantile, higherQuantile, DEFAULT_INTER_ARRIVAL_FACTOR);
     }
 
     @Override
-    public Mono<Payload> requestResponse(Payload payload) {
+    public Mono<T> requestResponse(T payload) {
       return Mono.from(
           subscriber ->
               source.requestResponse(payload).subscribe(new LatencySubscriber<>(subscriber, this)));
     }
 
     @Override
-    public Flux<Payload> requestStream(Payload payload) {
+    public Flux<T> requestStream(T payload) {
       return Flux.from(
           subscriber ->
               source.requestStream(payload).subscribe(new CountingSubscriber<>(subscriber, this)));
     }
 
     @Override
-    public Mono<Void> fireAndForget(Payload payload) {
+    public Mono<Void> fireAndForget(T payload) {
       return Mono.from(
           subscriber ->
               source.fireAndForget(payload).subscribe(new CountingSubscriber<>(subscriber, this)));
     }
 
     @Override
-    public Mono<Void> metadataPush(Payload payload) {
+    public Mono<Void> metadataPush(T payload) {
       return Mono.from(
           subscriber ->
               source.metadataPush(payload).subscribe(new CountingSubscriber<>(subscriber, this)));
     }
 
     @Override
-    public Flux<Payload> requestChannel(Publisher<Payload> payloads) {
+    public Flux<T> requestChannel(Publisher<T> payloads) {
       return Flux.from(
           subscriber ->
               source
@@ -809,7 +754,7 @@ public abstract class LoadBalancedRSocketMono extends Mono<RSocket>
                   .subscribe(new CountingSubscriber<>(subscriber, this)));
     }
 
-    RSocketSupplier getFactory() {
+    RSocketSupplier<T> getFactory() {
       return factory;
     }
 

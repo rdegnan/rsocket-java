@@ -25,7 +25,7 @@ import reactor.core.publisher.Mono;
  * contract where a server accepts a new {@code RSocket} for sending requests to the peer and
  * returns a new {@code RSocket} that will be used to accept requests from it's peer.
  */
-public interface SocketAcceptor {
+public interface SocketAcceptor<T extends Payload> {
 
   /**
    * Accepts a new {@code RSocket} used to send requests to the peer and returns another {@code
@@ -36,5 +36,5 @@ public interface SocketAcceptor {
    * @return Socket to accept requests from the peer.
    * @throws SetupException If the acceptor needs to reject the setup of this socket.
    */
-  Mono<RSocket> accept(ConnectionSetupPayload setup, RSocket sendingSocket);
+  Mono<RSocket<T>> accept(ConnectionSetupPayload setup, RSocket<T> sendingSocket);
 }

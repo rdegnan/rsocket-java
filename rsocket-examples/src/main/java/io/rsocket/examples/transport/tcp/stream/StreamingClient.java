@@ -30,7 +30,7 @@ public final class StreamingClient {
         .start()
         .subscribe();
 
-    RSocket socket =
+    RSocket<PayloadImpl> socket =
         RSocketFactory.connect()
             .transport(TcpClientTransport.create("localhost", 7000))
             .start()
@@ -45,13 +45,14 @@ public final class StreamingClient {
         .block();
   }
 
-  private static class SocketAcceptorImpl implements SocketAcceptor {
+  private static class SocketAcceptorImpl implements SocketAcceptor<PayloadImpl> {
     @Override
-    public Mono<RSocket> accept(ConnectionSetupPayload setupPayload, RSocket reactiveSocket) {
+    public Mono<RSocket<PayloadImpl>> accept(
+        ConnectionSetupPayload setupPayload, RSocket<PayloadImpl> reactiveSocket) {
       return Mono.just(
-          new AbstractRSocket() {
+          new AbstractRSocket<PayloadImpl>() {
             @Override
-            public Flux<Payload> requestStream(Payload payload) {
+            public Flux<PayloadImpl> requestStream(PayloadImpl payload) {
               return Flux.interval(Duration.ofMillis(100))
                   .map(aLong -> new PayloadImpl("Interval: " + aLong));
             }

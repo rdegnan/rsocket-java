@@ -47,23 +47,23 @@ import reactor.core.publisher.Mono;
 public class IntegrationTest {
 
   private NettyContextCloseable server;
-  private RSocket client;
+  private RSocket<PayloadImpl> client;
   private AtomicInteger requestCount;
   private CountDownLatch disconnectionCounter;
   public static volatile boolean calledClient = false;
   public static volatile boolean calledServer = false;
   public static volatile boolean calledFrame = false;
 
-  private static final RSocketInterceptor clientPlugin;
-  private static final RSocketInterceptor serverPlugin;
+  private static final RSocketInterceptor<PayloadImpl> clientPlugin;
+  private static final RSocketInterceptor<PayloadImpl> serverPlugin;
   private static final DuplexConnectionInterceptor connectionPlugin;
 
   static {
     clientPlugin =
         reactiveSocket ->
-            new RSocketProxy(reactiveSocket) {
+            new RSocketProxy<PayloadImpl>(reactiveSocket) {
               @Override
-              public Mono<Payload> requestResponse(Payload payload) {
+              public Mono<PayloadImpl> requestResponse(PayloadImpl payload) {
                 calledClient = true;
                 return reactiveSocket.requestResponse(payload);
               }
@@ -71,9 +71,9 @@ public class IntegrationTest {
 
     serverPlugin =
         reactiveSocket ->
-            new RSocketProxy(reactiveSocket) {
+            new RSocketProxy<PayloadImpl>(reactiveSocket) {
               @Override
-              public Mono<Payload> requestResponse(Payload payload) {
+              public Mono<PayloadImpl> requestResponse(PayloadImpl payload) {
                 calledServer = true;
                 return reactiveSocket.requestResponse(payload);
               }
@@ -105,15 +105,15 @@ public class IntegrationTest {
                       .subscribe();
 
                   return Mono.just(
-                      new AbstractRSocket() {
+                      new AbstractRSocket<PayloadImpl>() {
                         @Override
-                        public Mono<Payload> requestResponse(Payload payload) {
-                          return Mono.<Payload>just(new PayloadImpl("RESPONSE", "METADATA"))
+                        public Mono<PayloadImpl> requestResponse(PayloadImpl payload) {
+                          return Mono.just(new PayloadImpl("RESPONSE", "METADATA"))
                               .doOnSubscribe(s -> requestCount.incrementAndGet());
                         }
 
                         @Override
-                        public Flux<Payload> requestStream(Payload payload) {
+                        public Flux<PayloadImpl> requestStream(PayloadImpl payload) {
                           return Flux.range(1, 10_000).map(i -> new PayloadImpl("data -> " + i));
                         }
                       });

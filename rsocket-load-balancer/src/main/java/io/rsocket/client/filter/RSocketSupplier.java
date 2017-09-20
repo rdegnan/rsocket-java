@@ -31,11 +31,12 @@ import reactor.core.publisher.Mono;
 import reactor.core.publisher.MonoProcessor;
 
 /** */
-public class RSocketSupplier implements Availability, Supplier<Mono<RSocket>>, Closeable {
+public class RSocketSupplier<T extends Payload>
+    implements Availability, Supplier<Mono<RSocket<T>>>, Closeable {
 
   private static final double EPSILON = 1e-4;
 
-  private Supplier<Mono<RSocket>> rSocketSupplier;
+  private Supplier<Mono<RSocket<T>>> rSocketSupplier;
 
   private final MonoProcessor<Void> onClose;
 
@@ -43,7 +44,7 @@ public class RSocketSupplier implements Availability, Supplier<Mono<RSocket>>, C
   private long stamp;
   private final Ewma errorPercentage;
 
-  public RSocketSupplier(Supplier<Mono<RSocket>> rSocketSupplier, long halfLife, TimeUnit unit) {
+  public RSocketSupplier(Supplier<Mono<RSocket<T>>> rSocketSupplier, long halfLife, TimeUnit unit) {
     this.rSocketSupplier = rSocketSupplier;
     this.tau = Clock.unit().convert((long) (halfLife / Math.log(2)), unit);
     this.stamp = Clock.now();
@@ -51,7 +52,7 @@ public class RSocketSupplier implements Availability, Supplier<Mono<RSocket>>, C
     this.onClose = MonoProcessor.create();
   }
 
-  public RSocketSupplier(Supplier<Mono<RSocket>> rSocketSupplier) {
+  public RSocketSupplier(Supplier<Mono<RSocket<T>>> rSocketSupplier) {
     this(rSocketSupplier, 5, TimeUnit.SECONDS);
   }
 
@@ -78,7 +79,7 @@ public class RSocketSupplier implements Availability, Supplier<Mono<RSocket>>, C
   }
 
   @Override
-  public Mono<RSocket> get() {
+  public Mono<RSocket<T>> get() {
     return rSocketSupplier
         .get()
         .doOnNext(o -> updateErrorPercentage(1.0))
@@ -96,7 +97,7 @@ public class RSocketSupplier implements Availability, Supplier<Mono<RSocket>>, C
     return onClose;
   }
 
-  private class AvailabilityAwareRSocketProxy extends RSocketProxy {
+  private class AvailabilityAwareRSocketProxy extends RSocketProxy<T> {
     public AvailabilityAwareRSocketProxy(RSocket source) {
       super(source);
 
@@ -104,7 +105,7 @@ public class RSocketSupplier implements Availability, Supplier<Mono<RSocket>>, C
     }
 
     @Override
-    public Mono<Void> fireAndForget(Payload payload) {
+    public Mono<Void> fireAndForget(T payload) {
       return source
           .fireAndForget(payload)
           .doOnError(t -> errorPercentage.insert(0.0))
@@ -112,7 +113,7 @@ public class RSocketSupplier implements Availability, Supplier<Mono<RSocket>>, C
     }
 
     @Override
-    public Mono<Payload> requestResponse(Payload payload) {
+    public Mono<T> requestResponse(T payload) {
       return source
           .requestResponse(payload)
           .doOnError(t -> errorPercentage.insert(0.0))
@@ -120,7 +121,7 @@ public class RSocketSupplier implements Availability, Supplier<Mono<RSocket>>, C
     }
 
     @Override
-    public Flux<Payload> requestStream(Payload payload) {
+    public Flux<T> requestStream(T payload) {
       return source
           .requestStream(payload)
           .doOnError(th -> errorPercentage.insert(0.0))
@@ -128,7 +129,7 @@ public class RSocketSupplier implements Availability, Supplier<Mono<RSocket>>, C
     }
 
     @Override
-    public Flux<Payload> requestChannel(Publisher<Payload> payloads) {
+    public Flux<T> requestChannel(Publisher<T> payloads) {
       return source
           .requestChannel(payloads)
           .doOnError(th -> errorPercentage.insert(0.0))
@@ -136,7 +137,7 @@ public class RSocketSupplier implements Availability, Supplier<Mono<RSocket>>, C
     }
 
     @Override
-    public Mono<Void> metadataPush(Payload payload) {
+    public Mono<Void> metadataPush(T payload) {
       return source
           .metadataPush(payload)
           .doOnError(t -> errorPercentage.insert(0.0))

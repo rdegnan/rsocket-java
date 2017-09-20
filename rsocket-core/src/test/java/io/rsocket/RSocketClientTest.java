@@ -17,7 +17,6 @@
 package io.rsocket;
 
 import static io.rsocket.FrameType.*;
-import static io.rsocket.test.util.TestSubscriber.anyPayload;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
@@ -68,10 +67,10 @@ public class RSocketClientTest {
 
   @Test(timeout = 2_000)
   public void testStreamInitialN() {
-    Flux<Payload> stream = rule.socket.requestStream(PayloadImpl.EMPTY);
+    Flux<PayloadImpl> stream = rule.socket.requestStream(PayloadImpl.EMPTY);
 
-    BaseSubscriber<Payload> subscriber =
-        new BaseSubscriber<Payload>() {
+    BaseSubscriber<PayloadImpl> subscriber =
+        new BaseSubscriber<PayloadImpl>() {
           @Override
           protected void hookOnSubscribe(Subscription subscription) {
             // don't request here
@@ -110,8 +109,8 @@ public class RSocketClientTest {
   @Test(timeout = 2_000)
   public void testHandleApplicationException() {
     rule.connection.clearSendReceiveBuffers();
-    Publisher<Payload> response = rule.socket.requestResponse(PayloadImpl.EMPTY);
-    Subscriber<Payload> responseSub = TestSubscriber.create();
+    Publisher<PayloadImpl> response = rule.socket.requestResponse(PayloadImpl.EMPTY);
+    Subscriber<PayloadImpl> responseSub = TestSubscriber.create();
     response.subscribe(responseSub);
 
     int streamId = rule.getStreamIdForRequestType(REQUEST_RESPONSE);
@@ -123,21 +122,21 @@ public class RSocketClientTest {
 
   @Test(timeout = 2_000)
   public void testHandleValidFrame() {
-    Publisher<Payload> response = rule.socket.requestResponse(PayloadImpl.EMPTY);
-    Subscriber<Payload> sub = TestSubscriber.create();
+    Publisher<PayloadImpl> response = rule.socket.requestResponse(PayloadImpl.EMPTY);
+    Subscriber<PayloadImpl> sub = TestSubscriber.create();
     response.subscribe(sub);
 
     int streamId = rule.getStreamIdForRequestType(REQUEST_RESPONSE);
     rule.connection.addToReceivedBuffer(
         Frame.PayloadFrame.from(streamId, NEXT_COMPLETE, PayloadImpl.EMPTY));
 
-    verify(sub).onNext(anyPayload());
+    verify(sub).onNext(any(PayloadImpl.class));
     verify(sub).onComplete();
   }
 
   @Test(timeout = 2_000)
   public void testRequestReplyWithCancel() {
-    Mono<Payload> response = rule.socket.requestResponse(PayloadImpl.EMPTY);
+    Mono<PayloadImpl> response = rule.socket.requestResponse(PayloadImpl.EMPTY);
 
     try {
       response.block(Duration.ofMillis(100));
@@ -159,7 +158,7 @@ public class RSocketClientTest {
   @Test(timeout = 2_000)
   public void testRequestReplyErrorOnSend() {
     rule.connection.setAvailability(0); // Fails send
-    Mono<Payload> response = rule.socket.requestResponse(PayloadImpl.EMPTY);
+    Mono<PayloadImpl> response = rule.socket.requestResponse(PayloadImpl.EMPTY);
     Subscriber<Payload> responseSub = TestSubscriber.create();
     response.subscribe(responseSub);
 
@@ -168,29 +167,30 @@ public class RSocketClientTest {
 
   @Test
   public void testLazyRequestResponse() {
-    Publisher<Payload> response = rule.socket.requestResponse(PayloadImpl.EMPTY);
+    Publisher<PayloadImpl> response = rule.socket.requestResponse(PayloadImpl.EMPTY);
     int streamId = sendRequestResponse(response);
     rule.connection.clearSendReceiveBuffers();
     int streamId2 = sendRequestResponse(response);
     assertThat("Stream ID reused.", streamId2, not(equalTo(streamId)));
   }
 
-  public int sendRequestResponse(Publisher<Payload> response) {
-    Subscriber<Payload> sub = TestSubscriber.create();
+  public int sendRequestResponse(Publisher<PayloadImpl> response) {
+    Subscriber<PayloadImpl> sub = TestSubscriber.create();
     response.subscribe(sub);
     int streamId = rule.getStreamIdForRequestType(REQUEST_RESPONSE);
     rule.connection.addToReceivedBuffer(
         Frame.PayloadFrame.from(streamId, NEXT_COMPLETE, PayloadImpl.EMPTY));
-    verify(sub).onNext(anyPayload());
+    verify(sub).onNext(any(PayloadImpl.class));
     verify(sub).onComplete();
     return streamId;
   }
 
-  public static class ClientSocketRule extends AbstractSocketRule<RSocketClient> {
+  public static class ClientSocketRule extends AbstractSocketRule<RSocketClient<PayloadImpl>> {
     @Override
-    protected RSocketClient newRSocket() {
-      return new RSocketClient(
+    protected RSocketClient<PayloadImpl> newRSocket() {
+      return new RSocketClient<>(
           connection,
+          PayloadImpl::new,
           throwable -> errors.add(throwable),
           StreamIdSupplier.clientSupplier(),
           Duration.ofMillis(100),

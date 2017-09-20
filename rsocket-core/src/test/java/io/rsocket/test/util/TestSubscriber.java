@@ -3,7 +3,6 @@ package io.rsocket.test.util;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 
-import io.rsocket.Payload;
 import org.mockito.Mockito;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
@@ -30,13 +29,9 @@ public class TestSubscriber {
     return mock;
   }
 
-  public static Payload anyPayload() {
-    return any(Payload.class);
-  }
-
-  public static Subscriber<Payload> createCancelling() {
+  public static <T> Subscriber<T> createCancelling() {
     @SuppressWarnings("unchecked")
-    Subscriber<Payload> mock = mock(Subscriber.class);
+    Subscriber<T> mock = mock(Subscriber.class);
 
     Mockito.doAnswer(
             invocation -> {

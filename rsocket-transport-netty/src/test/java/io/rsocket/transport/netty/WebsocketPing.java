@@ -19,6 +19,7 @@ import io.rsocket.RSocket;
 import io.rsocket.RSocketFactory;
 import io.rsocket.test.PingClient;
 import io.rsocket.transport.netty.client.WebsocketClientTransport;
+import io.rsocket.util.PayloadImpl;
 import java.time.Duration;
 import org.HdrHistogram.Recorder;
 import reactor.core.publisher.Mono;
@@ -26,7 +27,7 @@ import reactor.core.publisher.Mono;
 public final class WebsocketPing {
 
   public static void main(String... args) {
-    Mono<RSocket> client =
+    Mono<RSocket<PayloadImpl>> client =
         RSocketFactory.connect().transport(WebsocketClientTransport.create(7878)).start();
 
     PingClient pingClient = new PingClient(client);

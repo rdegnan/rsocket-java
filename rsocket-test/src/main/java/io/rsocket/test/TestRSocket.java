@@ -17,36 +17,35 @@
 package io.rsocket.test;
 
 import io.rsocket.AbstractRSocket;
-import io.rsocket.Payload;
 import io.rsocket.util.PayloadImpl;
 import org.reactivestreams.Publisher;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-public class TestRSocket extends AbstractRSocket {
+public class TestRSocket extends AbstractRSocket<PayloadImpl> {
 
   @Override
-  public Mono<Payload> requestResponse(Payload payload) {
+  public Mono<PayloadImpl> requestResponse(PayloadImpl payload) {
     return Mono.just(new PayloadImpl("hello world", "metadata"));
   }
 
   @Override
-  public Flux<Payload> requestStream(Payload payload) {
+  public Flux<PayloadImpl> requestStream(PayloadImpl payload) {
     return Flux.range(1, 10_000).flatMap(l -> requestResponse(payload));
   }
 
   @Override
-  public Mono<Void> metadataPush(Payload payload) {
+  public Mono<Void> metadataPush(PayloadImpl payload) {
     return Mono.empty();
   }
 
   @Override
-  public Mono<Void> fireAndForget(Payload payload) {
+  public Mono<Void> fireAndForget(PayloadImpl payload) {
     return Mono.empty();
   }
 
   @Override
-  public Flux<Payload> requestChannel(Publisher<Payload> payloads) {
+  public Flux<PayloadImpl> requestChannel(Publisher<PayloadImpl> payloads) {
     // TODO is defensive copy neccesary?
     return Flux.from(payloads).map(p -> new PayloadImpl(p.getDataUtf8(), p.getMetadataUtf8()));
   }

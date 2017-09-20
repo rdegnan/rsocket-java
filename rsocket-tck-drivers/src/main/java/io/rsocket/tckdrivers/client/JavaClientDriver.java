@@ -54,16 +54,16 @@ public class JavaClientDriver {
   private final Map<String, MySubscriber<Void>> fnfSubscribers = new HashMap<>();
   private final Map<String, String> idToType = new HashMap<>();
   private final String AGENT = "[CLIENT]";
-  private final LoadingCache<String, RSocket> clientMap;
+  private final LoadingCache<String, RSocket<PayloadImpl>> clientMap;
   private ConsoleUtils consoleUtils = new ConsoleUtils(AGENT);
 
-  public JavaClientDriver(Mono<RSocket> clientBuilder) {
+  public JavaClientDriver(Mono<RSocket<PayloadImpl>> clientBuilder) {
     clientMap =
         CacheBuilder.newBuilder()
             .build(
-                new CacheLoader<String, RSocket>() {
+                new CacheLoader<String, RSocket<PayloadImpl>>() {
                   @Override
-                  public RSocket load(String key) {
+                  public RSocket<PayloadImpl> load(String key) {
                     return clientBuilder.block();
                   }
                 });

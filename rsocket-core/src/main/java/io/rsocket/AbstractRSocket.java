@@ -27,32 +27,32 @@ import reactor.core.publisher.MonoProcessor;
  *
  * <p>{@link #close()} and {@link #onClose()} returns a {@code Publisher} that never terminates.
  */
-public abstract class AbstractRSocket implements RSocket {
+public abstract class AbstractRSocket<T extends Payload> implements RSocket<T> {
 
   private final MonoProcessor<Void> onClose = MonoProcessor.create();
 
   @Override
-  public Mono<Void> fireAndForget(Payload payload) {
+  public Mono<Void> fireAndForget(T payload) {
     return Mono.error(new UnsupportedOperationException("Fire and forget not implemented."));
   }
 
   @Override
-  public Mono<Payload> requestResponse(Payload payload) {
+  public Mono<T> requestResponse(T payload) {
     return Mono.error(new UnsupportedOperationException("Request-Response not implemented."));
   }
 
   @Override
-  public Flux<Payload> requestStream(Payload payload) {
+  public Flux<T> requestStream(T payload) {
     return Flux.error(new UnsupportedOperationException("Request-Stream not implemented."));
   }
 
   @Override
-  public Flux<Payload> requestChannel(Publisher<Payload> payloads) {
+  public Flux<T> requestChannel(Publisher<T> payloads) {
     return Flux.error(new UnsupportedOperationException("Request-Channel not implemented."));
   }
 
   @Override
-  public Mono<Void> metadataPush(Payload payload) {
+  public Mono<Void> metadataPush(T payload) {
     return Mono.error(new UnsupportedOperationException("Metadata-Push not implemented."));
   }
 

@@ -38,7 +38,7 @@ class RunnerRSocket extends AbstractRSocket {
     String testName = (String) test.get("testName");
     String clientScript = (String) tck1Definition.get("clientScript");
 
-    Mono<RSocket> client =
+    Mono<RSocket<PayloadImpl>> client =
         RSocketFactory.connect().transport(UriTransportRegistry.clientForUri(url)).start();
 
     JavaClientDriver jd2 = new JavaClientDriver(client);

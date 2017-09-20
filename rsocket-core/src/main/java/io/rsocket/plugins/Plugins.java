@@ -16,9 +16,11 @@
 
 package io.rsocket.plugins;
 
+import io.rsocket.Payload;
+
 /** JVM wide plugins for RSocket */
 public class Plugins {
-  private static PluginRegistry DEFAULT = new PluginRegistry();
+  private static PluginRegistry<Payload> DEFAULT = new PluginRegistry<>();
 
   private Plugins() {}
 
@@ -26,15 +28,16 @@ public class Plugins {
     DEFAULT.addConnectionPlugin(interceptor);
   }
 
-  public static void interceptClient(RSocketInterceptor interceptor) {
+  public static void interceptClient(RSocketInterceptor<Payload> interceptor) {
     DEFAULT.addClientPlugin(interceptor);
   }
 
-  public static void interceptServer(RSocketInterceptor interceptor) {
+  public static <T extends Payload> void interceptServer(RSocketInterceptor<Payload> interceptor) {
     DEFAULT.addServerPlugin(interceptor);
   }
 
-  public static PluginRegistry defaultPlugins() {
-    return DEFAULT;
+  @SuppressWarnings("unchecked")
+  public static <T extends Payload> PluginRegistry<T> defaultPlugins() {
+    return (PluginRegistry<T>) DEFAULT;
   }
 }

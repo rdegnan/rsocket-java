@@ -17,7 +17,6 @@ import static org.junit.Assert.assertNull;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.rsocket.Payload;
 import io.rsocket.util.PayloadImpl;
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -35,7 +34,7 @@ import org.reactivestreams.Subscriber;
 public class ParseMarble {
 
   private Queue<Character> marble;
-  private Subscriber<? super Payload> s;
+  private Subscriber<? super PayloadImpl> s;
   private boolean cancelled = false;
   private Map<String, Map<String, String>> argMap;
   private long numSent = 0;
@@ -52,7 +51,7 @@ public class ParseMarble {
    * @param s the subscriber
    * @param agent agent
    */
-  public ParseMarble(String marble, Subscriber<? super Payload> s, String agent) {
+  public ParseMarble(String marble, Subscriber<? super PayloadImpl> s, String agent) {
     this.s = s;
     this.marble = new ConcurrentLinkedQueue<>();
     if (marble.contains("&&")) {
@@ -81,7 +80,7 @@ public class ParseMarble {
    * @param s the subscriber
    * @param agent agent
    */
-  public ParseMarble(Subscriber<? super Payload> s, String agent) {
+  public ParseMarble(Subscriber<? super PayloadImpl> s, String agent) {
     this.s = s;
     this.marble = new ConcurrentLinkedQueue<>();
     parseLatch = new CountDownLatch(1);

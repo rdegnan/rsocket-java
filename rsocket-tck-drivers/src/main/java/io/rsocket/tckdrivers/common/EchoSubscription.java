@@ -13,7 +13,6 @@
 
 package io.rsocket.tckdrivers.common;
 
-import io.rsocket.Payload;
 import io.rsocket.util.PayloadImpl;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -41,10 +40,10 @@ public class EchoSubscription implements Subscription {
 
   private long numSent = 0;
   private long numRequested = 0;
-  private Subscriber<? super Payload> sub;
+  private Subscriber<? super PayloadImpl> sub;
   private boolean cancelled = false;
 
-  public EchoSubscription(Subscriber<? super Payload> sub) {
+  public EchoSubscription(Subscriber<? super PayloadImpl> sub) {
     q = new ConcurrentLinkedQueue<>();
     this.sub = sub;
   }

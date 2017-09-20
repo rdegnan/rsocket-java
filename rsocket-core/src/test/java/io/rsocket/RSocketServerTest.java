@@ -81,10 +81,10 @@ public class RSocketServerTest {
     final int streamId = 4;
     final AtomicBoolean cancelled = new AtomicBoolean();
     rule.setAcceptingSocket(
-        new AbstractRSocket() {
+        new AbstractRSocket<PayloadImpl>() {
           @Override
-          public Mono<Payload> requestResponse(Payload payload) {
-            return Mono.<Payload>never().doOnCancel(() -> cancelled.set(true));
+          public Mono<PayloadImpl> requestResponse(PayloadImpl payload) {
+            return Mono.<PayloadImpl>never().doOnCancel(() -> cancelled.set(true));
           }
         });
     rule.sendRequest(streamId, FrameType.REQUEST_RESPONSE);
@@ -99,7 +99,7 @@ public class RSocketServerTest {
 
   public static class ServerSocketRule extends AbstractSocketRule<RSocketServer> {
 
-    private RSocket acceptingSocket;
+    private RSocket<PayloadImpl> acceptingSocket;
 
     @Override
     protected void init() {
@@ -113,7 +113,7 @@ public class RSocketServerTest {
       super.init();
     }
 
-    public void setAcceptingSocket(RSocket acceptingSocket) {
+    public void setAcceptingSocket(RSocket<PayloadImpl> acceptingSocket) {
       this.acceptingSocket = acceptingSocket;
       connection = new TestDuplexConnection();
       connectSub = TestSubscriber.create();
@@ -122,8 +122,9 @@ public class RSocketServerTest {
     }
 
     @Override
-    protected RSocketServer newRSocket() {
-      return new RSocketServer(connection, acceptingSocket, throwable -> errors.add(throwable));
+    protected RSocketServer<PayloadImpl> newRSocket() {
+      return new RSocketServer<>(
+          connection, PayloadImpl::new, acceptingSocket, throwable -> errors.add(throwable));
     }
 
     private void sendRequest(int streamId, FrameType frameType) {

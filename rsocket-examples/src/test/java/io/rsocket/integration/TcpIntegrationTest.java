@@ -20,7 +20,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
 import io.rsocket.AbstractRSocket;
-import io.rsocket.Payload;
 import io.rsocket.RSocket;
 import io.rsocket.RSocketFactory;
 import io.rsocket.transport.netty.client.TcpClientTransport;
@@ -39,7 +38,7 @@ import reactor.core.publisher.UnicastProcessor;
 import reactor.core.scheduler.Schedulers;
 
 public class TcpIntegrationTest {
-  private AbstractRSocket handler;
+  private AbstractRSocket<PayloadImpl> handler;
 
   private NettyContextCloseable server;
 
@@ -48,13 +47,13 @@ public class TcpIntegrationTest {
     TcpServerTransport serverTransport = TcpServerTransport.create(0);
     server =
         RSocketFactory.receive()
-            .acceptor((setup, sendingSocket) -> Mono.just(new RSocketProxy(handler)))
+            .acceptor((setup, sendingSocket) -> Mono.just(new RSocketProxy<>(handler)))
             .transport(serverTransport)
             .start()
             .block();
   }
 
-  private RSocket buildClient() {
+  private RSocket<PayloadImpl> buildClient() {
     return RSocketFactory.connect()
         .transport(TcpClientTransport.create(server.address()))
         .start()
@@ -69,13 +68,13 @@ public class TcpIntegrationTest {
   @Test(timeout = 5_000L)
   public void testCompleteWithoutNext() {
     handler =
-        new AbstractRSocket() {
+        new AbstractRSocket<PayloadImpl>() {
           @Override
-          public Flux<Payload> requestStream(Payload payload) {
+          public Flux<PayloadImpl> requestStream(PayloadImpl payload) {
             return Flux.empty();
           }
         };
-    RSocket client = buildClient();
+    RSocket<PayloadImpl> client = buildClient();
     Boolean hasElements =
         client.requestStream(new PayloadImpl("REQUEST", "META")).log().hasElements().block();
 
@@ -85,16 +84,16 @@ public class TcpIntegrationTest {
   @Test(timeout = 5_000L)
   public void testSingleStream() {
     handler =
-        new AbstractRSocket() {
+        new AbstractRSocket<PayloadImpl>() {
           @Override
-          public Flux<Payload> requestStream(Payload payload) {
+          public Flux<PayloadImpl> requestStream(PayloadImpl payload) {
             return Flux.just(new PayloadImpl("RESPONSE", "METADATA"));
           }
         };
 
-    RSocket client = buildClient();
+    RSocket<PayloadImpl> client = buildClient();
 
-    Payload result = client.requestStream(new PayloadImpl("REQUEST", "META")).blockLast();
+    PayloadImpl result = client.requestStream(new PayloadImpl("REQUEST", "META")).blockLast();
 
     assertEquals("RESPONSE", result.getDataUtf8());
   }
@@ -102,16 +101,16 @@ public class TcpIntegrationTest {
   @Test(timeout = 5_000L)
   public void testZeroPayload() {
     handler =
-        new AbstractRSocket() {
+        new AbstractRSocket<PayloadImpl>() {
           @Override
-          public Flux<Payload> requestStream(Payload payload) {
+          public Flux<PayloadImpl> requestStream(PayloadImpl payload) {
             return Flux.just(PayloadImpl.EMPTY);
           }
         };
 
-    RSocket client = buildClient();
+    RSocket<PayloadImpl> client = buildClient();
 
-    Payload result = client.requestStream(new PayloadImpl("REQUEST", "META")).blockFirst();
+    PayloadImpl result = client.requestStream(new PayloadImpl("REQUEST", "META")).blockFirst();
 
     assertEquals("", result.getDataUtf8());
   }
@@ -119,11 +118,11 @@ public class TcpIntegrationTest {
   @Test(timeout = 5_000L)
   public void testRequestResponseErrors() {
     handler =
-        new AbstractRSocket() {
+        new AbstractRSocket<PayloadImpl>() {
           boolean first = true;
 
           @Override
-          public Mono<Payload> requestResponse(Payload payload) {
+          public Mono<PayloadImpl> requestResponse(PayloadImpl payload) {
             if (first) {
               first = false;
               return Mono.error(new RuntimeException("EX"));
@@ -133,14 +132,14 @@ public class TcpIntegrationTest {
           }
         };
 
-    RSocket client = buildClient();
+    RSocket<PayloadImpl> client = buildClient();
 
-    Payload response1 =
+    PayloadImpl response1 =
         client
             .requestResponse(new PayloadImpl("REQUEST", "META"))
             .onErrorReturn(new PayloadImpl("ERROR"))
             .block();
-    Payload response2 =
+    PayloadImpl response2 =
         client
             .requestResponse(new PayloadImpl("REQUEST", "META"))
             .onErrorReturn(new PayloadImpl("ERROR"))
@@ -152,24 +151,24 @@ public class TcpIntegrationTest {
 
   @Test(timeout = 5_000L)
   public void testTwoConcurrentStreams() throws InterruptedException {
-    ConcurrentHashMap<String, UnicastProcessor<Payload>> map = new ConcurrentHashMap<>();
-    UnicastProcessor<Payload> processor1 = UnicastProcessor.create();
+    ConcurrentHashMap<String, UnicastProcessor<PayloadImpl>> map = new ConcurrentHashMap<>();
+    UnicastProcessor<PayloadImpl> processor1 = UnicastProcessor.create();
     map.put("REQUEST1", processor1);
-    UnicastProcessor<Payload> processor2 = UnicastProcessor.create();
+    UnicastProcessor<PayloadImpl> processor2 = UnicastProcessor.create();
     map.put("REQUEST2", processor2);
 
     handler =
-        new AbstractRSocket() {
+        new AbstractRSocket<PayloadImpl>() {
           @Override
-          public Flux<Payload> requestStream(Payload payload) {
+          public Flux<PayloadImpl> requestStream(PayloadImpl payload) {
             return map.get(payload.getDataUtf8());
           }
         };
 
-    RSocket client = buildClient();
+    RSocket<PayloadImpl> client = buildClient();
 
-    Flux<Payload> response1 = client.requestStream(new PayloadImpl("REQUEST1"));
-    Flux<Payload> response2 = client.requestStream(new PayloadImpl("REQUEST2"));
+    Flux<PayloadImpl> response1 = client.requestStream(new PayloadImpl("REQUEST1"));
+    Flux<PayloadImpl> response2 = client.requestStream(new PayloadImpl("REQUEST2"));
 
     CountDownLatch nextCountdown = new CountDownLatch(2);
     CountDownLatch completeCountdown = new CountDownLatch(2);

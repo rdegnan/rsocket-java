@@ -22,35 +22,35 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /** Wrapper/Proxy for a RSocket. This is useful when we want to override a specific method. */
-public class RSocketProxy implements RSocket {
-  protected final RSocket source;
+public class RSocketProxy<T extends Payload> implements RSocket<T> {
+  protected final RSocket<T> source;
 
-  public RSocketProxy(RSocket source) {
+  public RSocketProxy(RSocket<T> source) {
     this.source = source;
   }
 
   @Override
-  public Mono<Void> fireAndForget(Payload payload) {
+  public Mono<Void> fireAndForget(T payload) {
     return source.fireAndForget(payload);
   }
 
   @Override
-  public Mono<Payload> requestResponse(Payload payload) {
+  public Mono<T> requestResponse(T payload) {
     return source.requestResponse(payload);
   }
 
   @Override
-  public Flux<Payload> requestStream(Payload payload) {
+  public Flux<T> requestStream(T payload) {
     return source.requestStream(payload);
   }
 
   @Override
-  public Flux<Payload> requestChannel(Publisher<Payload> payloads) {
+  public Flux<T> requestChannel(Publisher<T> payloads) {
     return source.requestChannel(payloads);
   }
 
   @Override
-  public Mono<Void> metadataPush(Payload payload) {
+  public Mono<Void> metadataPush(T payload) {
     return source.metadataPush(payload);
   }
 

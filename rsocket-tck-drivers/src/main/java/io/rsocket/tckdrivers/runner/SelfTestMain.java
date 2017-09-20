@@ -18,7 +18,7 @@ public class SelfTestMain {
   @Option(name = "--url", description = "The server url")
   public String serverUrl = "tcp://localhost:30007";
 
-  private RSocket socket;
+  private RSocket<PayloadImpl> socket;
 
   static SelfTestMain fromArgs(String... args) {
     return SingleCommand.singleCommand(SelfTestMain.class).parse(args);
@@ -45,7 +45,7 @@ public class SelfTestMain {
         .block();
   }
 
-  private Payload selfTest() {
+  private PayloadImpl selfTest() {
     String uuid = UUID.randomUUID().toString();
     String version = "0.9-SNAPSHOT";
     return new PayloadImpl(

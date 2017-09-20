@@ -40,31 +40,31 @@ public final class RSockets {
    * @param timeout timeout duration.
    * @return Function to transform any socket into a timeout socket.
    */
-  public static Function<RSocket, RSocket> timeout(Duration timeout) {
+  public static <T extends Payload> Function<RSocket<T>, RSocket<T>> timeout(Duration timeout) {
     return source ->
-        new RSocketProxy(source) {
+        new RSocketProxy<T>(source) {
           @Override
-          public Mono<Void> fireAndForget(Payload payload) {
+          public Mono<Void> fireAndForget(T payload) {
             return source.fireAndForget(payload).timeout(timeout);
           }
 
           @Override
-          public Mono<Payload> requestResponse(Payload payload) {
+          public Mono<T> requestResponse(T payload) {
             return source.requestResponse(payload).timeout(timeout);
           }
 
           @Override
-          public Flux<Payload> requestStream(Payload payload) {
+          public Flux<T> requestStream(T payload) {
             return source.requestStream(payload).timeout(timeout);
           }
 
           @Override
-          public Flux<Payload> requestChannel(Publisher<Payload> payloads) {
+          public Flux<T> requestChannel(Publisher<T> payloads) {
             return source.requestChannel(payloads).timeout(timeout);
           }
 
           @Override
-          public Mono<Void> metadataPush(Payload payload) {
+          public Mono<Void> metadataPush(T payload) {
             return source.metadataPush(payload).timeout(timeout);
           }
         };
@@ -77,14 +77,14 @@ public final class RSockets {
    *
    * @return Function to transform any socket into a safe closing socket.
    */
-  public static Function<RSocket, RSocket> safeClose() {
+  public static <T extends Payload> Function<RSocket<T>, RSocket<T>> safeClose() {
     return source ->
-        new RSocketProxy(source) {
+        new RSocketProxy<T>(source) {
           final AtomicInteger count = new AtomicInteger();
           final AtomicBoolean closed = new AtomicBoolean();
 
           @Override
-          public Mono<Void> fireAndForget(Payload payload) {
+          public Mono<Void> fireAndForget(T payload) {
             return source
                 .fireAndForget(payload)
                 .doOnSubscribe(s -> count.incrementAndGet())
@@ -97,7 +97,7 @@ public final class RSockets {
           }
 
           @Override
-          public Mono<Payload> requestResponse(Payload payload) {
+          public Mono<T> requestResponse(T payload) {
             return source
                 .requestResponse(payload)
                 .doOnSubscribe(s -> count.incrementAndGet())
@@ -110,7 +110,7 @@ public final class RSockets {
           }
 
           @Override
-          public Flux<Payload> requestStream(Payload payload) {
+          public Flux<T> requestStream(T payload) {
             return source
                 .requestStream(payload)
                 .doOnSubscribe(s -> count.incrementAndGet())
@@ -123,7 +123,7 @@ public final class RSockets {
           }
 
           @Override
-          public Flux<Payload> requestChannel(Publisher<Payload> payloads) {
+          public Flux<T> requestChannel(Publisher<T> payloads) {
             return source
                 .requestChannel(payloads)
                 .doOnSubscribe(s -> count.incrementAndGet())
@@ -136,7 +136,7 @@ public final class RSockets {
           }
 
           @Override
-          public Mono<Void> metadataPush(Payload payload) {
+          public Mono<Void> metadataPush(T payload) {
             return source
                 .metadataPush(payload)
                 .doOnSubscribe(s -> count.incrementAndGet())

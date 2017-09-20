@@ -41,7 +41,7 @@ import org.slf4j.LoggerFactory;
  *
  * <p>This provides encoding, decoding and field accessors.
  */
-public class Frame implements ByteBufHolder {
+public class Frame implements ByteBufHolder, Payload {
   public static final ByteBuffer NULL_BYTEBUFFER = ByteBuffer.allocateDirect(0);
 
   private static final Recycler<Frame> RECYCLER =
@@ -183,24 +183,15 @@ public class Frame implements ByteBufHolder {
   }
 
   /**
-   * Return {@link ByteBuffer} that is a {@link ByteBuffer#slice()} for the frame metadata
+   * Return {@link ByteBuf} that is a {@link ByteBuf#slice()} for the frame metadata
    *
-   * <p>If no metadata is present, the ByteBuffer will have 0 capacity.
+   * <p>If no metadata is present, the ByteBuf will have 0 capacity.
    *
    * @return ByteBuffer containing the content
    */
-  public ByteBuffer getMetadata() {
-    final ByteBuf metadata = FrameHeaderFlyweight.sliceFrameMetadata(content);
-    if (metadata == null) {
-      return NULL_BYTEBUFFER;
-    } else if (metadata.readableBytes() > 0) {
-      final ByteBuffer buffer = ByteBuffer.allocateDirect(metadata.readableBytes());
-      metadata.readBytes(buffer);
-      buffer.flip();
-      return buffer;
-    } else {
-      return NULL_BYTEBUFFER;
-    }
+  @Override
+  public ByteBuf serializeMetadata() {
+    return hasMetadata() ? FrameHeaderFlyweight.sliceFrameMetadata(content) : Unpooled.EMPTY_BUFFER;
   }
 
   /**
@@ -210,16 +201,9 @@ public class Frame implements ByteBufHolder {
    *
    * @return ByteBuffer containing the data
    */
-  public ByteBuffer getData() {
-    final ByteBuf data = FrameHeaderFlyweight.sliceFrameData(content);
-    if (data.readableBytes() > 0) {
-      final ByteBuffer buffer = ByteBuffer.allocateDirect(data.readableBytes());
-      data.readBytes(buffer);
-      buffer.flip();
-      return buffer;
-    } else {
-      return NULL_BYTEBUFFER;
-    }
+  @Override
+  public ByteBuf serializeData() {
+    return FrameHeaderFlyweight.sliceFrameData(content);
   }
 
   /**
@@ -270,12 +254,9 @@ public class Frame implements ByteBufHolder {
     return current | toSet;
   }
 
+  @Override
   public boolean hasMetadata() {
     return Frame.isFlagSet(this.flags(), FLAGS_M);
-  }
-
-  public String getDataUtf8() {
-    return StandardCharsets.UTF_8.decode(getData()).toString();
   }
 
   /* TODO:
@@ -298,13 +279,8 @@ public class Frame implements ByteBufHolder {
         String dataMimeType,
         Payload payload) {
       final ByteBuf metadata =
-          payload.hasMetadata()
-              ? Unpooled.wrappedBuffer(payload.getMetadata())
-              : Unpooled.EMPTY_BUFFER;
-      final ByteBuf data =
-          payload.getData() != null
-              ? Unpooled.wrappedBuffer(payload.getData())
-              : Unpooled.EMPTY_BUFFER;
+          payload.hasMetadata() ? payload.serializeMetadata() : Unpooled.EMPTY_BUFFER;
+      final ByteBuf data = payload.serializeData();
 
       final Frame frame = RECYCLER.get();
       frame.content =
@@ -460,9 +436,8 @@ public class Frame implements ByteBufHolder {
       if (initialRequestN < 1) {
         throw new IllegalStateException("initial request n must be greater than 0");
       }
-      final @Nullable ByteBuf metadata =
-          payload.hasMetadata() ? Unpooled.wrappedBuffer(payload.getMetadata()) : null;
-      final ByteBuf data = Unpooled.wrappedBuffer(payload.getData());
+      final @Nullable ByteBuf metadata = payload.hasMetadata() ? payload.serializeMetadata() : null;
+      final ByteBuf data = payload.serializeData();
 
       final Frame frame = RECYCLER.get();
       frame.content =
@@ -561,9 +536,8 @@ public class Frame implements ByteBufHolder {
     }
 
     public static Frame from(int streamId, FrameType type, Payload payload, int flags) {
-      final ByteBuf metadata =
-          payload.hasMetadata() ? Unpooled.wrappedBuffer(payload.getMetadata()) : null;
-      final ByteBuf data = Unpooled.wrappedBuffer(payload.getData());
+      final ByteBuf metadata = payload.hasMetadata() ? payload.serializeMetadata() : null;
+      final ByteBuf data = payload.serializeData();
       return from(streamId, type, metadata, data, flags);
     }
 

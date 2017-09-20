@@ -24,7 +24,7 @@ import reactor.core.publisher.Mono;
  * A contract providing different interaction models for <a
  * href="https://github.com/RSocket/reactivesocket/blob/master/Protocol.md">RSocket protocol</a>.
  */
-public interface RSocket extends Availability, Closeable {
+public interface RSocket<T extends Payload> extends Availability, Closeable {
 
   /**
    * Fire and Forget interaction model of {@code RSocket}.
@@ -33,7 +33,7 @@ public interface RSocket extends Availability, Closeable {
    * @return {@code Publisher} that completes when the passed {@code payload} is successfully
    *     handled, otherwise errors.
    */
-  Mono<Void> fireAndForget(Payload payload);
+  Mono<Void> fireAndForget(T payload);
 
   /**
    * Request-Response interaction model of {@code RSocket}.
@@ -42,7 +42,7 @@ public interface RSocket extends Availability, Closeable {
    * @return {@code Publisher} containing at most a single {@code Payload} representing the
    *     response.
    */
-  Mono<Payload> requestResponse(Payload payload);
+  Mono<T> requestResponse(T payload);
 
   /**
    * Request-Stream interaction model of {@code RSocket}.
@@ -50,7 +50,7 @@ public interface RSocket extends Availability, Closeable {
    * @param payload Request payload.
    * @return {@code Publisher} containing the stream of {@code Payload}s representing the response.
    */
-  Flux<Payload> requestStream(Payload payload);
+  Flux<T> requestStream(T payload);
 
   /**
    * Request-Channel interaction model of {@code RSocket}.
@@ -58,7 +58,7 @@ public interface RSocket extends Availability, Closeable {
    * @param payloads Stream of request payloads.
    * @return Stream of response payloads.
    */
-  Flux<Payload> requestChannel(Publisher<Payload> payloads);
+  Flux<T> requestChannel(Publisher<T> payloads);
 
   /**
    * Metadata-Push interaction model of {@code RSocket}.
@@ -67,7 +67,7 @@ public interface RSocket extends Availability, Closeable {
    * @return {@code Publisher} that completes when the passed {@code payload} is successfully
    *     handled, otherwise errors.
    */
-  Mono<Void> metadataPush(Payload payload);
+  Mono<Void> metadataPush(T payload);
 
   @Override
   default double availability() {

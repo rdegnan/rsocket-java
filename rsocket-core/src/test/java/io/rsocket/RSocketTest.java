@@ -45,9 +45,9 @@ public class RSocketTest {
 
   @Test(timeout = 2_000)
   public void testRequestReplyNoError() {
-    Subscriber<Payload> subscriber = TestSubscriber.create();
+    Subscriber<PayloadImpl> subscriber = TestSubscriber.create();
     rule.crs.requestResponse(new PayloadImpl("hello")).subscribe(subscriber);
-    verify(subscriber).onNext(TestSubscriber.anyPayload());
+    verify(subscriber).onNext(any(PayloadImpl.class));
     verify(subscriber).onComplete();
     rule.assertNoErrors();
   }
@@ -55,13 +55,13 @@ public class RSocketTest {
   @Test(timeout = 2000)
   public void testHandlerEmitsError() {
     rule.setRequestAcceptor(
-        new AbstractRSocket() {
+        new AbstractRSocket<PayloadImpl>() {
           @Override
-          public Mono<Payload> requestResponse(Payload payload) {
+          public Mono<PayloadImpl> requestResponse(PayloadImpl payload) {
             return Mono.error(new NullPointerException("Deliberate exception."));
           }
         });
-    Subscriber<Payload> subscriber = TestSubscriber.create();
+    Subscriber<PayloadImpl> subscriber = TestSubscriber.create();
     rule.crs.requestResponse(PayloadImpl.EMPTY).subscribe(subscriber);
     verify(subscriber).onError(any(ApplicationException.class));
     rule.assertNoErrors();
@@ -70,9 +70,10 @@ public class RSocketTest {
   @Test(timeout = 2000)
   public void testChannel() throws Exception {
     CountDownLatch latch = new CountDownLatch(10);
-    Flux<Payload> requests = Flux.range(0, 10).map(i -> new PayloadImpl("streaming in -> " + i));
+    Flux<PayloadImpl> requests =
+        Flux.range(0, 10).map(i -> new PayloadImpl("streaming in -> " + i));
 
-    Flux<Payload> responses = rule.crs.requestChannel(requests);
+    Flux<PayloadImpl> responses = rule.crs.requestChannel(requests);
 
     responses.doOnNext(p -> latch.countDown()).subscribe();
 
@@ -81,9 +82,9 @@ public class RSocketTest {
 
   public static class SocketRule extends ExternalResource {
 
-    private RSocketClient crs;
-    private RSocketServer srs;
-    private RSocket requestAcceptor;
+    private RSocketClient<PayloadImpl> crs;
+    private RSocketServer<PayloadImpl> srs;
+    private RSocket<PayloadImpl> requestAcceptor;
     DirectProcessor<Frame> serverProcessor;
     DirectProcessor<Frame> clientProcessor;
     private ArrayList<Throwable> clientErrors = new ArrayList<>();
@@ -112,14 +113,14 @@ public class RSocketTest {
       requestAcceptor =
           null != requestAcceptor
               ? requestAcceptor
-              : new AbstractRSocket() {
+              : new AbstractRSocket<PayloadImpl>() {
                 @Override
-                public Mono<Payload> requestResponse(Payload payload) {
+                public Mono<PayloadImpl> requestResponse(PayloadImpl payload) {
                   return Mono.just(payload);
                 }
 
                 @Override
-                public Flux<Payload> requestChannel(Publisher<Payload> payloads) {
+                public Flux<PayloadImpl> requestChannel(Publisher<PayloadImpl> payloads) {
                   Flux.from(payloads)
                       .map(payload -> new PayloadImpl("server got -> [" + payload.toString() + "]"))
                       .subscribe();
@@ -131,17 +132,21 @@ public class RSocketTest {
               };
 
       srs =
-          new RSocketServer(
-              serverConnection, requestAcceptor, throwable -> serverErrors.add(throwable));
+          new RSocketServer<>(
+              serverConnection,
+              PayloadImpl::new,
+              requestAcceptor,
+              throwable -> serverErrors.add(throwable));
 
       crs =
-          new RSocketClient(
+          new RSocketClient<>(
               clientConnection,
+              PayloadImpl::new,
               throwable -> clientErrors.add(throwable),
               StreamIdSupplier.clientSupplier());
     }
 
-    public void setRequestAcceptor(RSocket requestAcceptor) {
+    public void setRequestAcceptor(RSocket<PayloadImpl> requestAcceptor) {
       this.requestAcceptor = requestAcceptor;
       init();
     }

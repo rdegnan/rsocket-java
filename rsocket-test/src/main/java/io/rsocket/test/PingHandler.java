@@ -18,16 +18,15 @@ package io.rsocket.test;
 
 import io.rsocket.AbstractRSocket;
 import io.rsocket.ConnectionSetupPayload;
-import io.rsocket.Payload;
 import io.rsocket.RSocket;
 import io.rsocket.SocketAcceptor;
 import io.rsocket.util.PayloadImpl;
 import java.util.concurrent.ThreadLocalRandom;
 import reactor.core.publisher.Mono;
 
-public class PingHandler implements SocketAcceptor {
+public class PingHandler implements SocketAcceptor<PayloadImpl> {
 
-  private final Payload pong;
+  private final PayloadImpl pong;
 
   public PingHandler() {
     byte[] data = new byte[1024];
@@ -40,11 +39,12 @@ public class PingHandler implements SocketAcceptor {
   }
 
   @Override
-  public Mono<RSocket> accept(ConnectionSetupPayload setup, RSocket sendingSocket) {
+  public Mono<RSocket<PayloadImpl>> accept(
+      ConnectionSetupPayload setup, RSocket<PayloadImpl> sendingSocket) {
     return Mono.just(
-        new AbstractRSocket() {
+        new AbstractRSocket<PayloadImpl>() {
           @Override
-          public Mono<Payload> requestResponse(Payload payload) {
+          public Mono<PayloadImpl> requestResponse(PayloadImpl payload) {
             return Mono.just(pong);
           }
         });

@@ -15,8 +15,6 @@
  */
 package io.rsocket.frame;
 
-import static io.rsocket.frame.FrameHeaderFlyweight.decodeMetadataLength;
-
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.rsocket.Frame;

@@ -20,6 +20,7 @@ import io.rsocket.AbstractRSocket;
 import io.rsocket.Payload;
 import io.rsocket.SocketAcceptor;
 import io.rsocket.tckdrivers.common.*;
+import io.rsocket.util.PayloadImpl;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -45,12 +46,12 @@ public class JavaServerDriver {
   // should be used if we want the server to be shutdown upon receiving some EOF packet
   public JavaServerDriver() {}
 
-  public SocketAcceptor acceptor() {
+  public SocketAcceptor<PayloadImpl> acceptor() {
     return (setup, sendingSocket) -> {
-      AbstractRSocket abstractRSocket =
-          new AbstractRSocket() {
+      AbstractRSocket<PayloadImpl> abstractRSocket =
+          new AbstractRSocket<PayloadImpl>() {
             @Override
-            public Flux<Payload> requestChannel(Publisher<Payload> payloads) {
+            public Flux<PayloadImpl> requestChannel(Publisher<PayloadImpl> payloads) {
               return Flux.from(
                   s -> {
                     try {
@@ -102,7 +103,7 @@ public class JavaServerDriver {
             }
 
             @Override
-            public final Mono<Void> fireAndForget(Payload payload) {
+            public final Mono<Void> fireAndForget(PayloadImpl payload) {
               return Mono.from(
                   s -> {
                     Tuple<String, String> initialPayload =
@@ -116,7 +117,7 @@ public class JavaServerDriver {
             }
 
             @Override
-            public Mono<Payload> requestResponse(Payload payload) {
+            public Mono<PayloadImpl> requestResponse(PayloadImpl payload) {
               return Mono.from(
                   s -> {
                     Tuple<String, String> initialPayload =
@@ -137,7 +138,7 @@ public class JavaServerDriver {
             }
 
             @Override
-            public Flux<Payload> requestStream(Payload payload) {
+            public Flux<PayloadImpl> requestStream(PayloadImpl payload) {
               return Flux.from(
                   s -> {
                     Tuple<String, String> initialPayload =

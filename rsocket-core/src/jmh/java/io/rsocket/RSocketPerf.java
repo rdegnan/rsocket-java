@@ -80,7 +80,7 @@ public class RSocketPerf {
 
     static final ByteBuffer HELLO = ByteBuffer.wrap("HELLO".getBytes(StandardCharsets.UTF_8));
 
-    static final Payload HELLO_PAYLOAD = new PayloadImpl(HELLO);
+    static final PayloadImpl HELLO_PAYLOAD = new PayloadImpl(HELLO);
 
     static final DirectProcessor<Frame> clientReceive = DirectProcessor.create();
     static final DirectProcessor<Frame> serverReceive = DirectProcessor.create();
@@ -94,30 +94,30 @@ public class RSocketPerf {
         RSocketFactory.receive()
             .acceptor(
                 (setup, sendingSocket) -> {
-                  RSocket rSocket =
-                      new RSocket() {
+                  RSocket<PayloadImpl> rSocket =
+                      new RSocket<PayloadImpl>() {
                         @Override
-                        public Mono<Void> fireAndForget(Payload payload) {
+                        public Mono<Void> fireAndForget(PayloadImpl payload) {
                           return Mono.empty();
                         }
 
                         @Override
-                        public Mono<Payload> requestResponse(Payload payload) {
+                        public Mono<PayloadImpl> requestResponse(PayloadImpl payload) {
                           return Mono.just(HELLO_PAYLOAD);
                         }
 
                         @Override
-                        public Flux<Payload> requestStream(Payload payload) {
+                        public Flux<PayloadImpl> requestStream(PayloadImpl payload) {
                           return Flux.range(1, 1_000).flatMap(i -> requestResponse(payload));
                         }
 
                         @Override
-                        public Flux<Payload> requestChannel(Publisher<Payload> payloads) {
+                        public Flux<PayloadImpl> requestChannel(Publisher<PayloadImpl> payloads) {
                           return Flux.empty();
                         }
 
                         @Override
-                        public Mono<Void> metadataPush(Payload payload) {
+                        public Mono<Void> metadataPush(PayloadImpl payload) {
                           return Mono.empty();
                         }
 
@@ -158,7 +158,7 @@ public class RSocketPerf {
 
     Subscriber blackHoleSubscriber;
 
-    RSocket client;
+    RSocket<PayloadImpl> client;
 
     @Setup
     public void setup(Blackhole bh) {

@@ -27,8 +27,8 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /** Wraps a {@link RSocket} with counters */
-public class SpectatorRSocket implements RSocket {
-  private final RSocket delegate;
+public class SpectatorRSocket<T extends Payload> implements RSocket<T> {
+  private final RSocket<T> delegate;
 
   private Counter fireAndForgetErrors;
   private Counter fireAndForgetCanceled;
@@ -53,7 +53,7 @@ public class SpectatorRSocket implements RSocket {
   private Counter metadataPushTotal;
   private Timer metadataPushTimer;
 
-  public SpectatorRSocket(Registry registry, RSocket delegate, String... tags) {
+  public SpectatorRSocket(Registry registry, RSocket<T> delegate, String... tags) {
     this.delegate = delegate;
 
     this.fireAndForgetErrors =
@@ -114,7 +114,7 @@ public class SpectatorRSocket implements RSocket {
   }
 
   @Override
-  public Mono<Void> fireAndForget(Payload payload) {
+  public Mono<Void> fireAndForget(T payload) {
     return Mono.defer(
         () -> {
           long start = System.nanoTime();
@@ -137,7 +137,7 @@ public class SpectatorRSocket implements RSocket {
   }
 
   @Override
-  public Mono<Payload> requestResponse(Payload payload) {
+  public Mono<T> requestResponse(T payload) {
     return Mono.defer(
         () -> {
           long start = System.nanoTime();
@@ -160,7 +160,7 @@ public class SpectatorRSocket implements RSocket {
   }
 
   @Override
-  public Flux<Payload> requestStream(Payload payload) {
+  public Flux<T> requestStream(T payload) {
     return Flux.defer(
         () ->
             delegate
@@ -180,7 +180,7 @@ public class SpectatorRSocket implements RSocket {
   }
 
   @Override
-  public Flux<Payload> requestChannel(Publisher<Payload> payloads) {
+  public Flux<T> requestChannel(Publisher<T> payloads) {
     return Flux.defer(
         () ->
             delegate
@@ -200,7 +200,7 @@ public class SpectatorRSocket implements RSocket {
   }
 
   @Override
-  public Mono<Void> metadataPush(Payload payload) {
+  public Mono<Void> metadataPush(T payload) {
     return Mono.defer(
         () -> {
           long start = System.nanoTime();

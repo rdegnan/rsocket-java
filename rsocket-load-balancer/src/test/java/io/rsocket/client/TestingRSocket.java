@@ -16,8 +16,8 @@
 
 package io.rsocket.client;
 
-import io.rsocket.Payload;
 import io.rsocket.RSocket;
+import io.rsocket.util.PayloadImpl;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -26,13 +26,14 @@ import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 import reactor.core.publisher.*;
 
-public class TestingRSocket implements RSocket {
+public class TestingRSocket implements RSocket<PayloadImpl> {
 
   private final AtomicInteger count;
   private final MonoProcessor<Void> closeSubject = MonoProcessor.create();
-  private final BiFunction<Subscriber<? super Payload>, Payload, Boolean> eachPayloadHandler;
+  private final BiFunction<Subscriber<? super PayloadImpl>, PayloadImpl, Boolean>
+      eachPayloadHandler;
 
-  public TestingRSocket(Function<Payload, Payload> responder) {
+  public TestingRSocket(Function<PayloadImpl, PayloadImpl> responder) {
     this(
         (subscriber, payload) -> {
           subscriber.onNext(responder.apply(payload));
@@ -41,7 +42,7 @@ public class TestingRSocket implements RSocket {
   }
 
   public TestingRSocket(
-      BiFunction<Subscriber<? super Payload>, Payload, Boolean> eachPayloadHandler) {
+      BiFunction<Subscriber<? super PayloadImpl>, PayloadImpl, Boolean> eachPayloadHandler) {
     this.eachPayloadHandler = eachPayloadHandler;
     this.count = new AtomicInteger(0);
   }
@@ -51,12 +52,12 @@ public class TestingRSocket implements RSocket {
   }
 
   @Override
-  public Mono<Void> fireAndForget(Payload payload) {
+  public Mono<Void> fireAndForget(PayloadImpl payload) {
     return Mono.empty();
   }
 
   @Override
-  public Mono<Payload> requestResponse(Payload payload) {
+  public Mono<PayloadImpl> requestResponse(PayloadImpl payload) {
     return Mono.from(
         subscriber ->
             subscriber.onSubscribe(
@@ -84,23 +85,23 @@ public class TestingRSocket implements RSocket {
   }
 
   @Override
-  public Flux<Payload> requestStream(Payload payload) {
+  public Flux<PayloadImpl> requestStream(PayloadImpl payload) {
     return requestResponse(payload).flux();
   }
 
   @Override
-  public Flux<Payload> requestChannel(Publisher<Payload> inputs) {
+  public Flux<PayloadImpl> requestChannel(Publisher<PayloadImpl> inputs) {
     return Flux.from(
         subscriber ->
             inputs.subscribe(
-                new Subscriber<Payload>() {
+                new Subscriber<PayloadImpl>() {
                   @Override
                   public void onSubscribe(Subscription s) {
                     subscriber.onSubscribe(s);
                   }
 
                   @Override
-                  public void onNext(Payload input) {
+                  public void onNext(PayloadImpl input) {
                     eachPayloadHandler.apply(subscriber, input);
                   }
 
@@ -117,7 +118,7 @@ public class TestingRSocket implements RSocket {
   }
 
   @Override
-  public Mono<Void> metadataPush(Payload payload) {
+  public Mono<Void> metadataPush(PayloadImpl payload) {
     return fireAndForget(payload);
   }
 

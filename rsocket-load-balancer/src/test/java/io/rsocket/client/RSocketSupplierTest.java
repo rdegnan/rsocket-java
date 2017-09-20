@@ -21,7 +21,6 @@ import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 
-import io.rsocket.Payload;
 import io.rsocket.RSocket;
 import io.rsocket.client.filter.RSocketSupplier;
 import io.rsocket.test.TestSubscriber;
@@ -44,9 +43,9 @@ public class RSocketSupplierTest {
     testRSocket(
         (latch, socket) -> {
           assertEquals(1.0, socket.availability(), 0.0);
-          Publisher<Payload> payloadPublisher = socket.requestResponse(PayloadImpl.EMPTY);
+          Publisher<PayloadImpl> payloadPublisher = socket.requestResponse(PayloadImpl.EMPTY);
 
-          Subscriber<Payload> subscriber = TestSubscriber.create();
+          Subscriber<PayloadImpl> subscriber = TestSubscriber.create();
           payloadPublisher.subscribe(subscriber);
 
           verify(subscriber).onComplete();
@@ -73,9 +72,9 @@ public class RSocketSupplierTest {
     testRSocket(
         (latch, socket) -> {
           assertEquals(1.0, socket.availability(), 0.0);
-          Publisher<Payload> payloadPublisher = socket.requestResponse(PayloadImpl.EMPTY);
+          Publisher<PayloadImpl> payloadPublisher = socket.requestResponse(PayloadImpl.EMPTY);
 
-          Subscriber<Payload> subscriber = TestSubscriber.create();
+          Subscriber<PayloadImpl> subscriber = TestSubscriber.create();
           payloadPublisher.subscribe(subscriber);
 
           verify(subscriber).onComplete();
@@ -100,7 +99,9 @@ public class RSocketSupplierTest {
         });
   }
 
-  private void testRSocket(BiConsumer<CountDownLatch, RSocket> f) throws InterruptedException {
+  @SuppressWarnings("unchecked")
+  private void testRSocket(BiConsumer<CountDownLatch, RSocket<PayloadImpl>> f)
+      throws InterruptedException {
     AtomicInteger count = new AtomicInteger(0);
     TestingRSocket socket =
         new TestingRSocket(
@@ -112,25 +113,26 @@ public class RSocketSupplierTest {
               }
             });
 
-    RSocketSupplier factory = Mockito.mock(RSocketSupplier.class);
+    RSocketSupplier<PayloadImpl> factory = Mockito.mock(RSocketSupplier.class);
 
     Mockito.when(factory.availability()).thenReturn(1.0);
     Mockito.when(factory.get()).thenReturn(Mono.just(socket));
 
-    RSocketSupplier failureFactory = new RSocketSupplier(factory, 100, TimeUnit.MILLISECONDS);
+    RSocketSupplier<PayloadImpl> failureFactory =
+        new RSocketSupplier<>(factory, 100, TimeUnit.MILLISECONDS);
 
     CountDownLatch latch = new CountDownLatch(1);
     failureFactory
         .get()
         .subscribe(
-            new Subscriber<RSocket>() {
+            new Subscriber<RSocket<PayloadImpl>>() {
               @Override
               public void onSubscribe(Subscription s) {
                 s.request(1);
               }
 
               @Override
-              public void onNext(RSocket socket) {
+              public void onNext(RSocket<PayloadImpl> socket) {
                 f.accept(latch, socket);
               }
 

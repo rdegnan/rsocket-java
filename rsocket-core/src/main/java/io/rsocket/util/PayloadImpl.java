@@ -16,6 +16,8 @@
 
 package io.rsocket.util;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import io.rsocket.Frame;
 import io.rsocket.Payload;
 import java.nio.ByteBuffer;
@@ -29,8 +31,7 @@ import javax.annotation.Nullable;
  */
 public class PayloadImpl implements Payload {
 
-  public static final PayloadImpl EMPTY =
-      new PayloadImpl(Frame.NULL_BYTEBUFFER, Frame.NULL_BYTEBUFFER, false);
+  public static final PayloadImpl EMPTY = new PayloadImpl(Frame.NULL_BYTEBUFFER, null, false);
 
   private final ByteBuffer data;
   private final ByteBuffer metadata;
@@ -39,7 +40,7 @@ public class PayloadImpl implements Payload {
   private final boolean reusable;
 
   public PayloadImpl(Frame frame) {
-    this(frame.getData(), frame.hasMetadata() ? frame.getMetadata() : null);
+    this(frame.serializeData(), frame.hasMetadata() ? frame.serializeMetadata() : null);
   }
 
   public PayloadImpl(String data) {
@@ -60,22 +61,30 @@ public class PayloadImpl implements Payload {
   }
 
   public PayloadImpl(byte[] data) {
-    this(ByteBuffer.wrap(data), Frame.NULL_BYTEBUFFER);
+    this(ByteBuffer.wrap(data), null);
   }
 
   public PayloadImpl(byte[] data, @Nullable byte[] metadata) {
     this(ByteBuffer.wrap(data), metadata == null ? null : ByteBuffer.wrap(metadata));
   }
 
+  public PayloadImpl(ByteBuf data) {
+    this(data.nioBuffer(), null);
+  }
+
+  public PayloadImpl(ByteBuf data, @Nullable ByteBuf metadata) {
+    this(data.nioBuffer(), metadata == null ? null : metadata.nioBuffer());
+  }
+
   public PayloadImpl(ByteBuffer data) {
-    this(data, Frame.NULL_BYTEBUFFER);
+    this(data, null);
   }
 
   public PayloadImpl(ByteBuffer data, @Nullable ByteBuffer metadata) {
     this(data, metadata, true);
   }
 
-  public PayloadImpl(ByteBuffer data, ByteBuffer metadata, boolean reusable) {
+  public PayloadImpl(ByteBuffer data, @Nullable ByteBuffer metadata, boolean reusable) {
     this.data = data;
     this.metadata = metadata;
     this.reusable = reusable;
@@ -84,14 +93,10 @@ public class PayloadImpl implements Payload {
   }
 
   @Override
-  public ByteBuffer getData() {
-    if (reusable) {
-      data.position(dataStartPosition);
-    }
-    return data;
+  public boolean hasMetadata() {
+    return metadata != null;
   }
 
-  @Override
   public ByteBuffer getMetadata() {
     if (metadata == null) {
       return Frame.NULL_BYTEBUFFER;
@@ -102,9 +107,21 @@ public class PayloadImpl implements Payload {
     return metadata;
   }
 
+  public ByteBuffer getData() {
+    if (reusable) {
+      data.position(dataStartPosition);
+    }
+    return data;
+  }
+
   @Override
-  public boolean hasMetadata() {
-    return metadata != null;
+  public ByteBuf serializeMetadata() {
+    return Unpooled.wrappedBuffer(getMetadata());
+  }
+
+  @Override
+  public ByteBuf serializeData() {
+    return Unpooled.wrappedBuffer(getData());
   }
 
   /**
