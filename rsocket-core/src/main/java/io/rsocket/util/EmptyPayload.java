@@ -27,4 +27,7 @@ public class EmptyPayload implements Payload {
   public ByteBuf serializeData() {
     return Unpooled.EMPTY_BUFFER;
   }
+
+  @Override
+  public void dispose() {}
 }

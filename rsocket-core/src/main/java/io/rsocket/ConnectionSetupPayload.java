@@ -125,5 +125,8 @@ public abstract class ConnectionSetupPayload implements Payload {
     public int getFlags() {
       return flags;
     }
+
+    @Override
+    public void dispose() {}
   }
 }

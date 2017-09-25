@@ -46,7 +46,8 @@ public class RSocketFactory {
     return new ClientRSocketFactory<>(PayloadImpl::new);
   }
 
-  public static <T extends Payload> ClientRSocketFactory<T> connect(Function<Frame, T> frameDecoder) {
+  public static <T extends Payload> ClientRSocketFactory<T> connect(
+      Function<Frame, T> frameDecoder) {
     return new ClientRSocketFactory<>(frameDecoder);
   }
 

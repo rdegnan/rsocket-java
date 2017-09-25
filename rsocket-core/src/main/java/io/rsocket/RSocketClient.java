@@ -133,6 +133,7 @@ class RSocketClient<T extends Payload> implements RSocket<T> {
               final int streamId = streamIdSupplier.nextStreamId();
               final Frame requestFrame =
                   Frame.Request.from(streamId, FrameType.FIRE_AND_FORGET, payload, 1);
+              payload.dispose();
               return connection.sendOne(requestFrame);
             });
 
@@ -157,6 +158,7 @@ class RSocketClient<T extends Payload> implements RSocket<T> {
   @Override
   public Mono<Void> metadataPush(T payload) {
     final Frame requestFrame = Frame.Request.from(0, FrameType.METADATA_PUSH, payload, 1);
+    payload.dispose();
     return connection.sendOne(requestFrame);
   }
 
@@ -182,6 +184,7 @@ class RSocketClient<T extends Payload> implements RSocket<T> {
               int streamId = streamIdSupplier.nextStreamId();
               final Frame requestFrame =
                   Frame.Request.from(streamId, FrameType.REQUEST_RESPONSE, payload, 1);
+              payload.dispose();
 
               MonoProcessor<T> receiver = MonoProcessor.create();
 
@@ -292,13 +295,16 @@ class RSocketClient<T extends Payload> implements RSocket<T> {
                                               }
                                             }
 
+                                            final Frame requestFrame;
                                             if (_firstPayload) {
-                                              return Frame.Request.from(
+                                              requestFrame = Frame.Request.from(
                                                   streamId, requestType, payload, l);
                                             } else {
-                                              return Frame.PayloadFrame.from(
+                                              requestFrame = Frame.PayloadFrame.from(
                                                   streamId, FrameType.NEXT, payload);
                                             }
+                                            payload.dispose();
+                                            return requestFrame;
                                           }
                                         })
                                     .doOnComplete(

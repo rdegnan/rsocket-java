@@ -259,6 +259,16 @@ public class Frame implements ByteBufHolder, Payload {
     return Frame.isFlagSet(this.flags(), FLAGS_M);
   }
 
+  @Override
+  public void dispose() {
+    release();
+  }
+
+  @Override
+  public boolean isDisposed() {
+    return false;
+  }
+
   /* TODO:
    *
    * fromRequest(type, id, payload)

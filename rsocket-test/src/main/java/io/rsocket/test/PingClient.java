@@ -16,6 +16,7 @@
 
 package io.rsocket.test;
 
+import io.rsocket.Payload;
 import io.rsocket.RSocket;
 import io.rsocket.util.PayloadImpl;
 import java.time.Duration;
@@ -26,9 +27,9 @@ import reactor.core.publisher.Mono;
 public class PingClient {
 
   private final PayloadImpl payload;
-  private final Mono<RSocket<PayloadImpl>> client;
+  private final Mono<RSocket<Payload>> client;
 
-  public PingClient(Mono<RSocket<PayloadImpl>> client) {
+  public PingClient(Mono<RSocket<Payload>> client) {
     this.client = client;
     this.payload = new PayloadImpl("hello");
   }
@@ -48,7 +49,7 @@ public class PingClient {
     return histogram;
   }
 
-  public Flux<PayloadImpl> startPingPong(int count, final Recorder histogram) {
+  public Flux<Payload> startPingPong(int count, final Recorder histogram) {
     return client
         .flatMapMany(
             rsocket ->

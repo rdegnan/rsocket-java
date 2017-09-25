@@ -17,12 +17,12 @@
 package io.rsocket.util;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufAllocator;
+import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
 import io.rsocket.Frame;
 import io.rsocket.Payload;
 import java.nio.ByteBuffer;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import javax.annotation.Nullable;
 
 /**
@@ -31,49 +31,33 @@ import javax.annotation.Nullable;
  */
 public class PayloadImpl implements Payload {
 
-  public static final PayloadImpl EMPTY = new PayloadImpl(Frame.NULL_BYTEBUFFER, null, false);
+  public static final PayloadImpl EMPTY = new PayloadImpl(Unpooled.EMPTY_BUFFER, null);
 
-  private final ByteBuffer data;
-  private final ByteBuffer metadata;
-  private final int dataStartPosition;
-  private final int metadataStartPosition;
-  private final boolean reusable;
+  private final ByteBuf data;
+  private final ByteBuf metadata;
 
   public PayloadImpl(Frame frame) {
-    this(frame.serializeData(), frame.hasMetadata() ? frame.serializeMetadata() : null);
+    this.data = frame.serializeData();
+    this.metadata = frame.hasMetadata() ? frame.serializeMetadata() : null;
   }
 
   public PayloadImpl(String data) {
-    this(data, Charset.defaultCharset());
+    this(data, null);
   }
 
   public PayloadImpl(String data, @Nullable String metadata) {
-    this(data, StandardCharsets.UTF_8, metadata, StandardCharsets.UTF_8);
-  }
-
-  public PayloadImpl(String data, Charset dataCharset) {
-    this(dataCharset.encode(data), null);
-  }
-
-  public PayloadImpl(
-      String data, Charset dataCharset, @Nullable String metadata, Charset metaDataCharset) {
-    this(dataCharset.encode(data), metadata == null ? null : metaDataCharset.encode(metadata));
+    this.data = ByteBufUtil.writeUtf8(ByteBufAllocator.DEFAULT, data);
+    this.metadata =
+        metadata == null ? null : ByteBufUtil.writeUtf8(ByteBufAllocator.DEFAULT, metadata);
   }
 
   public PayloadImpl(byte[] data) {
-    this(ByteBuffer.wrap(data), null);
+    this(data, null);
   }
 
   public PayloadImpl(byte[] data, @Nullable byte[] metadata) {
-    this(ByteBuffer.wrap(data), metadata == null ? null : ByteBuffer.wrap(metadata));
-  }
-
-  public PayloadImpl(ByteBuf data) {
-    this(data.nioBuffer(), null);
-  }
-
-  public PayloadImpl(ByteBuf data, @Nullable ByteBuf metadata) {
-    this(data.nioBuffer(), metadata == null ? null : metadata.nioBuffer());
+    this.data = Unpooled.wrappedBuffer(data);
+    this.metadata = metadata == null ? null : Unpooled.wrappedBuffer(metadata);
   }
 
   public PayloadImpl(ByteBuffer data) {
@@ -81,15 +65,17 @@ public class PayloadImpl implements Payload {
   }
 
   public PayloadImpl(ByteBuffer data, @Nullable ByteBuffer metadata) {
-    this(data, metadata, true);
+    this.data = Unpooled.wrappedBuffer(data);
+    this.metadata = metadata == null ? null : Unpooled.wrappedBuffer(metadata);
   }
 
-  public PayloadImpl(ByteBuffer data, @Nullable ByteBuffer metadata, boolean reusable) {
-    this.data = data;
-    this.metadata = metadata;
-    this.reusable = reusable;
-    this.dataStartPosition = reusable ? this.data.position() : 0;
-    this.metadataStartPosition = (reusable && metadata != null) ? this.metadata.position() : 0;
+  public PayloadImpl(ByteBuf data) {
+    this(data, null);
+  }
+
+  public PayloadImpl(ByteBuf data, @Nullable ByteBuf metadata) {
+    this.data = Unpooled.copiedBuffer(data);
+    this.metadata = metadata == null ? null : Unpooled.copiedBuffer(metadata);
   }
 
   @Override
@@ -97,32 +83,18 @@ public class PayloadImpl implements Payload {
     return metadata != null;
   }
 
-  public ByteBuffer getMetadata() {
-    if (metadata == null) {
-      return Frame.NULL_BYTEBUFFER;
-    }
-    if (reusable) {
-      metadata.position(metadataStartPosition);
-    }
-    return metadata;
-  }
-
-  public ByteBuffer getData() {
-    if (reusable) {
-      data.position(dataStartPosition);
-    }
-    return data;
-  }
-
   @Override
   public ByteBuf serializeMetadata() {
-    return Unpooled.wrappedBuffer(getMetadata());
+    return metadata == null ? Unpooled.EMPTY_BUFFER : metadata;
   }
 
   @Override
   public ByteBuf serializeData() {
-    return Unpooled.wrappedBuffer(getData());
+    return data;
   }
+
+  @Override
+  public void dispose() {}
 
   /**
    * Static factory method for a text payload. Mainly looks better than "new PayloadImpl(data)"
