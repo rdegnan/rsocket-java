@@ -13,15 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package io.rsocket.transport.aeron;
 
-/* Generated SBE (Simple Binary Encoding) message codec */
-package io.rsocket.aeron.internal.reactivestreams.messages;
+import io.rsocket.test.BaseClientServerTest;
 
-@javax.annotation.Generated(
-  value = {"io.rsocket.aeron.internal.reactivestreams.messages.MetaAttribute"}
-)
-public enum MetaAttribute {
-  EPOCH,
-  TIME_UNIT,
-  SEMANTIC_TYPE
+public class AeronClientServerTest extends BaseClientServerTest<AeronClientSetupRule> {
+  @Override
+  protected AeronClientSetupRule createClientServer() {
+    return new AeronClientSetupRule();
+  }
 }

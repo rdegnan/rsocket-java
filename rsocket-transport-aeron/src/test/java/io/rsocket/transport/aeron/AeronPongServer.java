@@ -13,9 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.rsocket.aeron.internal;
+package io.rsocket.transport.aeron;
 
-public class TimedOutException extends RuntimeException {
+import io.rsocket.Frame;
+import io.rsocket.RSocketFactory;
+import io.rsocket.test.PingHandler;
 
-  private static final long serialVersionUID = 6252022225519863073L;
+public final class AeronPongServer {
+
+  public static void main(String... args) {
+    RSocketFactory.receive()
+        .frameDecoder(Frame::retain)
+        .acceptor(new PingHandler())
+        .transport(AeronServerTransport.create("test-local-server"))
+        .start()
+        .block()
+        .onClose()
+        .block();
+  }
 }

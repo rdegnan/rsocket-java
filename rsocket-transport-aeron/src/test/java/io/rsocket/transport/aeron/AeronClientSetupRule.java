@@ -13,18 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.rsocket.aeron.internal;
 
-import java.util.function.IntSupplier;
+package io.rsocket.transport.aeron;
 
-/** Interface for an EventLoop used by Aeron */
-public interface EventLoop {
-  /**
-   * Executes an IntSupplier that returns a number greater than 0 if it wants the the event loop to
-   * keep processing items, and zero its okay for the eventloop to execute an idle strategy
-   *
-   * @param r signal for roughly how many items could be processed.
-   * @return whether items could be processed
-   */
-  boolean execute(IntSupplier r);
+import io.rsocket.Closeable;
+import io.rsocket.test.ClientSetupRule;
+
+import java.util.concurrent.atomic.AtomicInteger;
+
+public class AeronClientSetupRule extends ClientSetupRule<String, Closeable> {
+  private static final AtomicInteger uniqueNameGenerator = new AtomicInteger();
+
+  public AeronClientSetupRule() {
+    super(
+        () -> "test" + uniqueNameGenerator.incrementAndGet(),
+        (address, server) -> AeronClientTransport.create(address),
+        AeronServerTransport::create);
+  }
 }
